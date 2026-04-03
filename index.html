@@ -1,0 +1,1424 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LPG · Automatizador de Liquidaciones</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Fraunces:ital,wght@0,300;0,600;0,900;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --verde: #1a3a2a;
+    --verde-medio: #2d6a4f;
+    --verde-claro: #52b788;
+    --crema: #f5f0e8;
+    --crema-oscuro: #e8e0d0;
+    --dorado: #c9a84c;
+    --dorado-claro: #f0d080;
+    --texto: #1a1a1a;
+    --gris: #6b7280;
+    --error: #c0392b;
+    --ok: #27ae60;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--crema);
+    color: var(--texto);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--verde);
+    padding: 2rem 3rem;
+    display: flex;
+    align-items: flex-end;
+    gap: 2rem;
+    border-bottom: 3px solid var(--dorado);
+    position: relative;
+    overflow: hidden;
+  }
+  header::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 200px; height: 200px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(201,168,76,0.15) 0%, transparent 70%);
+  }
+  .header-icon {
+    font-size: 3rem;
+    line-height: 1;
+    filter: drop-shadow(0 0 12px rgba(201,168,76,0.4));
+  }
+  .header-text h1 {
+    font-family: 'Fraunces', serif;
+    font-size: 2rem;
+    font-weight: 900;
+    color: var(--crema);
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .header-text h1 span { color: var(--dorado); }
+  .header-text p {
+    color: rgba(245,240,232,0.6);
+    font-size: 0.75rem;
+    margin-top: 0.3rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .badge {
+    margin-left: auto;
+    background: var(--dorado);
+    color: var(--verde);
+    font-size: 0.65rem;
+    font-weight: 500;
+    padding: 0.3rem 0.8rem;
+    border-radius: 2px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    align-self: flex-start;
+    margin-top: 0.5rem;
+  }
+
+  /* ── LAYOUT ── */
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2.5rem 2rem;
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 2rem;
+    align-items: start;
+  }
+
+  /* ── PANEL IZQUIERDO ── */
+  .panel {
+    background: white;
+    border: 1.5px solid var(--crema-oscuro);
+    border-radius: 4px;
+  }
+  .panel-header {
+    background: var(--verde);
+    color: var(--crema);
+    padding: 0.8rem 1.2rem;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    border-radius: 3px 3px 0 0;
+  }
+  .panel-header .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--dorado);
+  }
+  .panel-body { padding: 1.5rem; }
+
+  /* ── UPLOAD ZONE ── */
+  .upload-zone {
+    border: 2px dashed var(--crema-oscuro);
+    border-radius: 4px;
+    padding: 2.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--crema);
+    position: relative;
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--verde-claro);
+    background: rgba(82,183,136,0.05);
+  }
+  .upload-zone input { display: none; }
+  .upload-icon { font-size: 2.5rem; margin-bottom: 0.8rem; }
+  .upload-zone h3 {
+    font-family: 'Fraunces', serif;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--verde);
+    margin-bottom: 0.4rem;
+  }
+  .upload-zone p { font-size: 0.72rem; color: var(--gris); line-height: 1.6; }
+  .upload-zone .hint {
+    margin-top: 1rem;
+    font-size: 0.65rem;
+    color: var(--dorado);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  /* ── LISTA DE PDFs ── */
+  .pdf-list { margin-top: 1.2rem; }
+  .pdf-item {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 0.6rem 0.8rem;
+    border: 1px solid var(--crema-oscuro);
+    border-radius: 3px;
+    margin-bottom: 0.5rem;
+    font-size: 0.72rem;
+    background: var(--crema);
+    transition: all 0.2s;
+    animation: slideIn 0.2s ease;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .pdf-item.procesado { border-color: var(--ok); background: rgba(39,174,96,0.04); }
+  .pdf-item.error     { border-color: var(--error); background: rgba(192,57,43,0.04); }
+  .pdf-item.procesando { border-color: var(--dorado); background: rgba(201,168,76,0.05); }
+  .pdf-nombre { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pdf-estado { font-size: 0.65rem; color: var(--gris); white-space: nowrap; }
+  .pdf-remove {
+    cursor: pointer; color: var(--gris); font-size: 1rem; line-height: 1;
+    padding: 0 0.2rem;
+    transition: color 0.15s;
+  }
+  .pdf-remove:hover { color: var(--error); }
+
+  /* ── SPIN ── */
+  .spin {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid var(--crema-oscuro);
+    border-top-color: var(--verde-claro);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── DATOS EXTRAÍDOS ── */
+  .tabla-extraidos {
+    width: 100%; border-collapse: collapse;
+    font-size: 0.68rem; margin-top: 1rem;
+  }
+  .tabla-extraidos th {
+    background: var(--verde);
+    color: var(--crema);
+    padding: 0.5rem 0.6rem;
+    text-align: left;
+    font-weight: 400;
+    letter-spacing: 0.05em;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+  }
+  .tabla-extraidos td {
+    padding: 0.45rem 0.6rem;
+    border-bottom: 1px solid var(--crema-oscuro);
+    vertical-align: middle;
+  }
+  .tabla-extraidos tr:nth-child(even) td { background: var(--crema); }
+  .tabla-extraidos tr:hover td { background: rgba(82,183,136,0.06); }
+  .monto { text-align: right; font-variant-numeric: tabular-nums; }
+  .tag-grano {
+    background: var(--verde);
+    color: var(--crema);
+    font-size: 0.6rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 2px;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── PANEL DERECHO ── */
+  .sidebar { display: flex; flex-direction: column; gap: 1.2rem; }
+
+  /* ── CONFIG ── */
+  .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+  .field label {
+    display: block;
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--gris);
+    margin-bottom: 0.35rem;
+  }
+  .field input, .field select {
+    width: 100%;
+    padding: 0.55rem 0.7rem;
+    border: 1.5px solid var(--crema-oscuro);
+    border-radius: 3px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    background: var(--crema);
+    color: var(--texto);
+    transition: border-color 0.15s;
+  }
+  .field input:focus, .field select:focus {
+    outline: none;
+    border-color: var(--verde-claro);
+  }
+  .field.full { grid-column: 1 / -1; }
+
+  /* ── BOTONES ── */
+  .btn {
+    width: 100%;
+    padding: 0.9rem;
+    border: none;
+    border-radius: 3px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+  .btn-primary {
+    background: var(--verde);
+    color: var(--crema);
+    border: 2px solid var(--verde);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--verde-medio);
+    border-color: var(--dorado);
+  }
+  .btn-primary:disabled {
+    opacity: 0.4; cursor: not-allowed;
+  }
+  .btn-secondary {
+    background: transparent;
+    color: var(--verde);
+    border: 1.5px solid var(--crema-oscuro);
+    margin-top: 0.5rem;
+  }
+  .btn-secondary:hover:not(:disabled) {
+    border-color: var(--verde-claro);
+    background: rgba(82,183,136,0.05);
+  }
+  .btn-secondary:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  /* ── RESUMEN ── */
+  .resumen-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+  .kpi {
+    background: var(--crema);
+    border: 1px solid var(--crema-oscuro);
+    border-radius: 3px;
+    padding: 0.8rem;
+    text-align: center;
+  }
+  .kpi .valor {
+    font-family: 'Fraunces', serif;
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--verde);
+    line-height: 1;
+  }
+  .kpi .label {
+    font-size: 0.6rem;
+    color: var(--gris);
+    margin-top: 0.3rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .kpi.total { grid-column: 1 / -1; }
+  .kpi.total .valor { font-size: 1.6rem; color: var(--dorado); }
+
+  /* ── LOG ── */
+  .log {
+    background: var(--verde);
+    color: var(--verde-claro);
+    border-radius: 3px;
+    padding: 0.8rem;
+    font-size: 0.65rem;
+    line-height: 1.8;
+    max-height: 120px;
+    overflow-y: auto;
+    letter-spacing: 0.02em;
+  }
+  .log .log-ok  { color: var(--verde-claro); }
+  .log .log-err { color: #e74c3c; }
+  .log .log-inf { color: var(--dorado-claro); }
+
+  /* ── OUTPUTS ── */
+  .output-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  .output-item {
+    display: flex; align-items: center; gap: 0.7rem;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid var(--crema-oscuro);
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--crema);
+  }
+  .output-item:hover { border-color: var(--verde-claro); background: white; }
+  .output-item.disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+  .output-icon { font-size: 1.3rem; }
+  .output-info { flex: 1; }
+  .output-info .nombre { font-size: 0.72rem; color: var(--texto); }
+  .output-info .desc   { font-size: 0.62rem; color: var(--gris); margin-top: 0.1rem; }
+  .output-dl { font-size: 0.65rem; color: var(--verde-medio); letter-spacing: 0.05em; }
+
+  /* ── PROGRESS ── */
+  .progress-bar {
+    height: 3px;
+    background: var(--crema-oscuro);
+    border-radius: 2px;
+    overflow: hidden;
+    margin: 0.8rem 0;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--verde-claro), var(--dorado));
+    border-radius: 2px;
+    transition: width 0.3s ease;
+    width: 0%;
+  }
+
+  /* ── ALERTAS ── */
+  .alerta {
+    padding: 0.7rem 0.9rem;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    line-height: 1.5;
+    margin-top: 0.8rem;
+    display: none;
+  }
+  .alerta.show { display: block; }
+  .alerta.ok  { background: rgba(39,174,96,0.1);  border-left: 3px solid var(--ok);    color: #1a5c2e; }
+  .alerta.err { background: rgba(192,57,43,0.1);  border-left: 3px solid var(--error); color: var(--error); }
+  .alerta.inf { background: rgba(201,168,76,0.1); border-left: 3px solid var(--dorado); color: #7a5c00; }
+
+  /* ── FOOTER ── */
+  footer {
+    text-align: center;
+    padding: 1.5rem;
+    font-size: 0.62rem;
+    color: var(--gris);
+    letter-spacing: 0.05em;
+    border-top: 1px solid var(--crema-oscuro);
+    margin-top: 2rem;
+  }
+
+  @media (max-width: 800px) {
+    main { grid-template-columns: 1fr; padding: 1rem; }
+    header { padding: 1.2rem; }
+    .header-text h1 { font-size: 1.4rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-icon">🌾</div>
+  <div class="header-text">
+    <h1>LPG <span>Automatizador</span></h1>
+    <p>Liquidaciones Primarias de Granos · IVA Simple ARCA</p>
+  </div>
+  <div class="badge">v1.0 · 2026</div>
+</header>
+
+<main>
+  <!-- ══ COLUMNA IZQUIERDA ══ -->
+  <div style="display:flex;flex-direction:column;gap:1.5rem;">
+
+    <!-- Carga de PDFs -->
+    <div class="panel">
+      <div class="panel-header"><div class="dot"></div> Paso 1 · Cargar Liquidaciones PDF</div>
+      <div class="panel-body">
+        <div class="upload-zone" id="uploadZone">
+          <input type="file" id="fileInput" accept=".pdf" multiple>
+          <div class="upload-icon">📄</div>
+          <h3>Arrastrá los PDFs aquí</h3>
+          <p>O hacé clic para seleccionar múltiples archivos<br>Liquidaciones Primarias de Granos emitidas por AFIP/ARCA</p>
+          <div class="hint">↑ Formato PDF · Múltiples archivos permitidos</div>
+        </div>
+        <div class="pdf-list" id="pdfList"></div>
+        <div class="progress-bar" id="progressBar" style="display:none;">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="alerta" id="alertaCarga"></div>
+      </div>
+    </div>
+
+    <!-- Tabla de datos extraídos -->
+    <div class="panel" id="panelTabla" style="display:none;">
+      <div class="panel-header"><div class="dot"></div> Paso 2 · Verificar Datos Extraídos</div>
+      <div class="panel-body" style="overflow-x:auto;">
+        <table class="tabla-extraidos" id="tablaExtraidos">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>COE</th>
+              <th>Comprador</th>
+              <th>Grano</th>
+              <th>Kg</th>
+              <th>Subtotal</th>
+              <th>IVA 10.5%</th>
+              <th>Op. c/IVA</th>
+              <th>Ret. IVA</th>
+              <th>Ret. Gcias</th>
+            </tr>
+          </thead>
+          <tbody id="tablaBody"></tbody>
+        </table>
+        <div class="alerta inf show" style="margin-top:0.8rem;">
+          ⚠ Verificá los datos antes de generar los archivos. Si algo está mal, podés quitar el PDF y volver a cargarlo.
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══ COLUMNA DERECHA ══ -->
+  <div class="sidebar">
+
+    <!-- Config -->
+    <div class="panel">
+      <div class="panel-header"><div class="dot"></div> Configuración</div>
+      <div class="panel-body">
+        <div class="config-grid">
+          <div class="field full">
+            <label>Vendedor / Productor</label>
+            <input type="text" id="cfgVendedor" placeholder="Se completa desde el PDF">
+          </div>
+          <div class="field">
+            <label>CUIT Vendedor</label>
+            <input type="text" id="cfgCuitVendedor" placeholder="Auto">
+          </div>
+          <div class="field">
+            <label>Período (MM/AAAA)</label>
+            <input type="text" id="cfgPeriodo" placeholder="Auto">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Resumen -->
+    <div class="panel" id="panelResumen" style="display:none;">
+      <div class="panel-header"><div class="dot"></div> Resumen del Período</div>
+      <div class="panel-body">
+        <div class="resumen-grid">
+          <div class="kpi"><div class="valor" id="kpiCantidad">0</div><div class="label">Liquidaciones</div></div>
+          <div class="kpi"><div class="valor" id="kpiKg">0</div><div class="label">Kg Totales</div></div>
+          <div class="kpi"><div class="valor" id="kpiIva">$0</div><div class="label">Débito Fiscal</div></div>
+          <div class="kpi"><div class="valor" id="kpiRetIva">$0</div><div class="label">Ret. IVA</div></div>
+          <div class="kpi total"><div class="valor" id="kpiTotal">$0</div><div class="label">Total Operaciones c/IVA</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Generar -->
+    <div class="panel">
+      <div class="panel-header"><div class="dot"></div> Paso 3 · Generar Archivos</div>
+      <div class="panel-body">
+        <div class="log" id="logPanel">
+          <span class="log-inf">▸ Esperando liquidaciones...</span>
+        </div>
+        <button class="btn btn-primary" id="btnGenerar" disabled onclick="generarArchivos()">
+          ⚙ Generar Excel + TXT para ARCA
+        </button>
+        <button class="btn btn-secondary" id="btnLimpiar" onclick="limpiarTodo()">
+          ✕ Limpiar todo
+        </button>
+      </div>
+    </div>
+
+    <!-- Descargas -->
+    <div class="panel">
+      <div class="panel-header"><div class="dot"></div> Paso 4 · Descargar Archivos</div>
+      <div class="panel-body">
+        <div class="output-list">
+          <div class="output-item disabled" id="dlExcel" onclick="descargarExcel()">
+            <div class="output-icon">📊</div>
+            <div class="output-info">
+              <div class="nombre">Liquidaciones.xlsx</div>
+              <div class="desc">Planilla completa con todas las liquidaciones</div>
+            </div>
+            <div class="output-dl">↓ XLSX</div>
+          </div>
+          <div class="output-item disabled" id="dlCabecera" onclick="descargarCabecera()">
+            <div class="output-icon">📄</div>
+            <div class="output-info">
+              <div class="nombre">VENTAS_CABECERA.txt</div>
+              <div class="desc">Comprobantes · 266 chars/línea · Windows-1252</div>
+            </div>
+            <div class="output-dl">↓ TXT</div>
+          </div>
+          <div class="output-item disabled" id="dlAlicuotas" onclick="descargarAlicuotas()">
+            <div class="output-icon">📄</div>
+            <div class="output-info">
+              <div class="nombre">VENTAS_ALICUOTAS.txt</div>
+              <div class="desc">Alícuotas IVA · 62 chars/línea · Windows-1252</div>
+            </div>
+            <div class="output-dl">↓ TXT</div>
+          </div>
+        </div>
+        <div class="alerta" id="alertaOk"></div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<footer>LPG Automatizador · Liquidaciones Primarias de Granos · IVA Simple ARCA · Tipo 033 · Libro Ventas</footer>
+
+<script>
+// ═══════════════════════════════════════════════════
+// CONFIGURACIÓN PDF.js
+// ═══════════════════════════════════════════════════
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ═══════════════════════════════════════════════════
+// ESTADO GLOBAL
+// ═══════════════════════════════════════════════════
+let liquidaciones = [];
+let excelBlob = null, cabBlob = null, alicBlob = null;
+let periodo = '';
+
+// ═══════════════════════════════════════════════════
+// DRAG & DROP
+// ═══════════════════════════════════════════════════
+const zone = document.getElementById('uploadZone');
+const input = document.getElementById('fileInput');
+
+zone.addEventListener('click', () => input.click());
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+zone.addEventListener('drop', e => {
+  e.preventDefault(); zone.classList.remove('drag-over');
+  procesarArchivos([...e.dataTransfer.files]);
+});
+input.addEventListener('change', () => procesarArchivos([...input.files]));
+
+// ═══════════════════════════════════════════════════
+// PROCESAMIENTO DE PDFs
+// ═══════════════════════════════════════════════════
+async function procesarArchivos(files) {
+  const pdfs = files.filter(f => f.name.toLowerCase().endsWith('.pdf'));
+  if (!pdfs.length) { mostrarAlerta('alertaCarga', 'Solo se aceptan archivos PDF.', 'err'); return; }
+
+  const barra = document.getElementById('progressBar');
+  const fill  = document.getElementById('progressFill');
+  barra.style.display = 'block';
+
+  for (let i = 0; i < pdfs.length; i++) {
+    const f = pdfs[i];
+    // Verificar duplicado por nombre
+    if (liquidaciones.find(l => l._archivo === f.name)) {
+      log(`↷ ${f.name} ya está cargado, omitido`, 'inf'); continue;
+    }
+
+    const itemId = 'pdf_' + Date.now() + '_' + i;
+    agregarItemLista(f.name, itemId, 'procesando');
+    fill.style.width = ((i) / pdfs.length * 100) + '%';
+
+    try {
+      const liq = await extraerDatosPDF(f);
+      liq._archivo = f.name;
+      liq._itemId  = itemId;
+      liquidaciones.push(liq);
+      actualizarItemLista(itemId, 'procesado', '✓ ' + liq.coe);
+      log(`✓ ${f.name} → COE ${liq.coe}`, 'ok');
+
+      // Auto-completar campos de configuración desde el PDF
+      if (liq.vendedor)     document.getElementById('cfgVendedor').value     = liq.vendedor;
+      if (liq.cuitVendedor) document.getElementById('cfgCuitVendedor').value = liq.cuitVendedor;
+      if (liq.periodo)      document.getElementById('cfgPeriodo').value      = liq.periodo;
+      if (liq.vendedor) log(`👤 ${liq.vendedor} | CUIT: ${liq.cuitVendedor} | Período: ${liq.periodo}`, 'ok');
+    } catch (e) {
+      actualizarItemLista(itemId, 'error', '✗ ' + e.message);
+      log(`✗ ${f.name}: ${e.message}`, 'err');
+    }
+  }
+
+  fill.style.width = '100%';
+  setTimeout(() => { barra.style.display = 'none'; fill.style.width = '0%'; }, 800);
+
+  actualizarUI();
+  input.value = '';
+}
+
+// ═══════════════════════════════════════════════════
+// EXTRACCIÓN DE DATOS DEL PDF
+// ═══════════════════════════════════════════════════
+async function extraerDatosPDF(file) {
+  const buffer = await file.arrayBuffer();
+  const pdf    = await pdfjsLib.getDocument({ data: buffer }).promise;
+  let texto = '';
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page    = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    texto += content.items.map(i => i.str).join(' ') + '\n';
+  }
+
+  const liq = {};
+
+  // COE
+  const coe = texto.match(/C\.O\.E\.\s*[:：]?\s*(\d{12})/);
+  if (!coe) throw new Error('No se encontró el COE');
+  liq.coe = coe[1];
+
+  // Fecha — tomar la del ENCABEZADO (primera fecha DD/MM/AAAA del documento)
+  const todasFechas = [...texto.matchAll(/(\d{2})\/(\d{2})\/(\d{4})/g)];
+  if (!todasFechas.length) throw new Error('No se encontró la fecha');
+  const fp = todasFechas[0];
+  liq.fecha = `${fp[3]}${fp[2]}${fp[1]}`;
+  liq.fechaDisplay = liq.fecha.slice(6) + '/' + liq.fecha.slice(4,6) + '/' + liq.fecha.slice(0,4);
+  liq.periodo = liq.fecha.slice(4,6) + '/' + liq.fecha.slice(0,4);
+
+  // Comprador (primer "Razón Social")
+  const comprador = texto.match(/Raz.n Social:\s*([^\n\r]+?)(?:\s+Domicilio|\s+C\.U\.I\.T\.)/);
+  if (comprador) liq.comprador = comprador[1].trim().substring(0, 30);
+  else liq.comprador = 'COMPRADOR NO IDENTIFICADO';
+
+  // CUIT comprador (primer CUIT del documento)
+  const cuitComp = texto.match(/C\.U\.I\.T\.\s*[:：]?\s*([\d-]+)/);
+  if (cuitComp) liq.cuitComprador = cuitComp[1].replace(/-/g, '');
+  else throw new Error('No se encontró CUIT del comprador');
+
+  // Vendedor (segundo "Razón Social") y CUIT vendedor (segundo CUIT)
+  const todasRazones = [...texto.matchAll(/Raz.n Social:\s*([^\n\r]+?)(?:\s+Domicilio|\s+C\.U\.I\.T\.)/g)];
+  liq.vendedor = todasRazones.length >= 2 ? todasRazones[1][1].trim().substring(0, 50) : '';
+  const todosCUITs = [...texto.matchAll(/C\.U\.I\.T\.\s*[:：]?\s*([\d-]{11,13})/g)]
+    .map(m => m[1].replace(/-/g,''));
+  liq.cuitVendedor = todosCUITs.length >= 2 ? todosCUITs[1] : '';
+
+  // Período desde la fecha de la operación (MM/AAAA)
+  liq.periodo = liq.fecha ? liq.fecha.slice(4,6) + '/' + liq.fecha.slice(0,4) : '';
+
+  // Grano (incluyendo TRIGO PAN)
+  const GRANOS = ['TRIGO PAN','TRIGO','MAIZ','SOJA','GIRASOL','CEBADA','SORGO','MIJO','CENTENO'];
+  liq.grano = GRANOS.find(g => texto.toUpperCase().includes(g)) || 'GRANO';
+
+  // Grado
+  const grado = texto.match(/\bG([123])\b/);
+  liq.grado = grado ? 'G' + grado[1] : 'G2';
+
+  // Tipo de comprobante: en IVA Simple todos van como 033
+  liq.tipoCbte = '033';
+
+  // Cantidad / Peso Kg (acepta "0 Kg" para ajustes)
+  const kg = texto.match(/(\d[\d,\.]*)\s*Kg\s*\$([\d,\.]+)\s*\$([\d,\.]+)/);
+  if (kg) {
+    liq.cantidadKg = parseMonto(kg[1]);
+    liq.precioKg   = liq.cantidadKg > 0 ? parseMonto(kg[2]) / liq.cantidadKg : 0;
+    liq.subtotal   = parseMonto(kg[3]);
+  } else {
+    const sub = texto.match(/\$([\d,\.]+)\s*10[,\.]5\s*\$([\d,\.]+)\s*\$([\d,\.]+)/);
+    if (sub) {
+      liq.subtotal   = parseMonto(sub[1]);
+      liq.cantidadKg = 0;
+    } else {
+      // Ajuste con 0 Kg: buscar "Ajuste Varios $importe"
+      const ajuste = texto.match(/Ajuste\s+Varios\s*\$([\d,\.]+)/i);
+      const totM   = texto.match(/Total Operaci.n:\s*\$\s*([\d,\.]+)/i);
+      const ivaRG  = texto.match(/IVA RG [^$\n]*\$\s*([\d,\.]+)/i);
+      if (ajuste) {
+        liq.subtotal   = parseMonto(ajuste[1]);
+        liq.cantidadKg = 0;
+      } else if (totM && ivaRG) {
+        liq.opCIVA     = parseMonto(totM[1]);
+        liq.importeIVA = parseMonto(ivaRG[1]);
+        liq.subtotal   = Math.round((liq.opCIVA - liq.importeIVA) * 100) / 100;
+        liq.cantidadKg = 0;
+      } else {
+        throw new Error('No se encontraron importes de operación');
+      }
+    }
+  }
+
+  // IVA 10.5%
+  const iva = texto.match(/10[,\.]5\s*\$([\d,\.]+)\s*\$([\d,\.]+)/);
+  if (iva) liq.importeIVA = parseMonto(iva[1]);
+  else liq.importeIVA = Math.round(liq.subtotal * 10.5) / 100;
+
+  // Op c/IVA
+  liq.opCIVA = liq.subtotal + liq.importeIVA;
+
+  // Retención IVA (7%) — dos formatos posibles:
+  // Formato A: "7%\n$ 750,636.59"   → con signo $
+  // Formato B: "7%\n37,258,864.46\n2,608,120.51"  → sin signo $, el importe es la 2da línea
+  const retIVA7A = texto.match(/7\s*%\s*\$\s*([\d,\.]+)/);
+  const retIVA7B = texto.match(/7\s*%\s*\n([\d,\.]+)\s*\n([\d,\.]+)/);
+  if (retIVA7A) {
+    liq.retIVA = parseMonto(retIVA7A[1]);
+  } else if (retIVA7B) {
+    // Tomar el segundo número (el importe, no la base de cálculo)
+    liq.retIVA = parseMonto(retIVA7B[2]);
+  } else {
+    liq.retIVA = 0;
+  }
+
+  // Retención Ganancias (2%) — aparece como "2% $ 211,619.60"
+  const retGan2 = texto.match(/2\s*%\s*\$\s*([\d,\.]+)/);
+  liq.retGanancias = retGan2 ? parseMonto(retGan2[1]) : 0;
+
+  // Deducciones (Sellado)
+  const deduc = texto.match(/SELLADO[^$]*\$\s*([\d,\.]+)/i);
+  liq.deducciones = deduc ? parseMonto(deduc[1]) : 0;
+
+  // IVA RG 4310 — en el PDF el valor aparece varias líneas después del label
+  // Estructura: "IVA RG 4310/2018:\n\nDatos...\n\n$ 0.00\n\n$ 375,318.30"
+  // Tomar el segundo valor numérico que aparece después del label
+  const rgBlock = texto.match(/IVA RG 4310[^$]*((?:\$\s*[\d,\.]+\s*)+)/i);
+  if (rgBlock) {
+    const montos = [...rgBlock[1].matchAll(/\$\s*([\d,\.]+)/g)].map(m => parseMonto(m[1]));
+    // El primero suele ser $0.00, el segundo es el real
+    liq.ivaRG4310 = montos.find(m => m > 0) || 0;
+  } else {
+    liq.ivaRG4310 = 0;
+  }
+
+  // Total operación
+  const totalOp = texto.match(/Total Operaci.n:\s*\$\s*([\d,\.]+)/i);
+  liq.totalOp = totalOp ? parseMonto(totalOp[1]) : liq.opCIVA;
+
+  // Pago según condiciones
+  const pago = texto.match(/Pago seg.n condiciones:\s*\$\s*([\d,\.]+)/i);
+  liq.pagoCond = pago ? parseMonto(pago[1]) : 0;
+
+  return liq;
+}
+
+function parseMonto(str) {
+  if (!str) return 0;
+  let s = String(str).trim().replace(/\s/g, '');
+  if (!s) return 0;
+
+  // Detectar formato:
+  // Caso 1: "750,636.59"  → coma=miles, punto=decimal  → quitar comas → "750636.59"
+  // Caso 2: "750.636,59"  → punto=miles, coma=decimal  → quitar puntos, coma→punto
+  // Caso 3: "750636.59"   → sin separador de miles
+  // Caso 4: "750636,59"   → sin separador de miles, coma decimal
+
+  const tieneComaYPunto = s.includes(',') && s.includes('.');
+  if (tieneComaYPunto) {
+    const idxComa  = s.lastIndexOf(',');
+    const idxPunto = s.lastIndexOf('.');
+    if (idxPunto > idxComa) {
+      // El punto es el decimal → "750,636.59" → quitar comas
+      s = s.replace(/,/g, '');
+    } else {
+      // La coma es el decimal → "750.636,59" → quitar puntos, coma→punto
+      s = s.replace(/\./g, '').replace(',', '.');
+    }
+  } else if (s.includes(',')) {
+    // Solo coma: puede ser decimal o miles
+    const partes = s.split(',');
+    if (partes[partes.length-1].length === 2 || partes[partes.length-1].length === 3 && partes.length === 2) {
+      // "750636,59" o "750,59" → coma decimal
+      s = s.replace(',', '.');
+    } else {
+      // "1,234,567" → coma miles
+      s = s.replace(/,/g, '');
+    }
+  }
+  return parseFloat(s) || 0;
+}
+
+// ═══════════════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════════════
+function agregarItemLista(nombre, id, estado) {
+  const lista = document.getElementById('pdfList');
+  const div   = document.createElement('div');
+  div.className = 'pdf-item ' + estado;
+  div.id = id;
+  div.innerHTML = `
+    <span>${estado === 'procesando' ? '<div class="spin"></div>' : '📄'}</span>
+    <span class="pdf-nombre">${nombre}</span>
+    <span class="pdf-estado" id="${id}_estado">Procesando...</span>
+    <span class="pdf-remove" onclick="quitarPDF('${id}')">✕</span>`;
+  lista.appendChild(div);
+}
+
+function actualizarItemLista(id, estado, msg) {
+  const item = document.getElementById(id);
+  if (!item) return;
+  item.className = 'pdf-item ' + estado;
+  const icono  = item.querySelector('span:first-child');
+  const estado_ = item.querySelector('.pdf-estado');
+  icono.innerHTML = estado === 'procesado' ? '✅' : estado === 'error' ? '❌' : '📄';
+  estado_.textContent = msg;
+}
+
+function quitarPDF(id) {
+  const idx = liquidaciones.findIndex(l => l._itemId === id);
+  if (idx !== -1) liquidaciones.splice(idx, 1);
+  const el = document.getElementById(id);
+  if (el) el.remove();
+  actualizarUI();
+}
+
+function log(msg, tipo = 'inf') {
+  const p = document.getElementById('logPanel');
+  const span = document.createElement('span');
+  span.className = 'log-' + tipo;
+  span.textContent = msg;
+  p.appendChild(document.createElement('br'));
+  p.appendChild(span);
+  p.scrollTop = p.scrollHeight;
+}
+
+function mostrarAlerta(id, msg, tipo) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = `alerta ${tipo} show`;
+}
+
+function formatMiles(n) {
+  return Math.round(n).toLocaleString('es-AR');
+}
+function formatPesos(n) {
+  return '$' + Math.round(n).toLocaleString('es-AR');
+}
+
+// ═══════════════════════════════════════════════════
+// ACTUALIZAR INTERFAZ
+// ═══════════════════════════════════════════════════
+function actualizarUI() {
+  const hayDatos = liquidaciones.length > 0;
+
+  // Tabla
+  document.getElementById('panelTabla').style.display  = hayDatos ? 'block' : 'none';
+  document.getElementById('panelResumen').style.display = hayDatos ? 'block' : 'none';
+  document.getElementById('btnGenerar').disabled = !hayDatos;
+
+  // Poblar tabla
+  const tbody = document.getElementById('tablaBody');
+  tbody.innerHTML = '';
+  let totalKg = 0, totalIVA = 0, totalRetIVA = 0, totalOp = 0;
+
+  liquidaciones.forEach(l => {
+    totalKg    += l.cantidadKg   || 0;
+    totalIVA   += l.importeIVA   || 0;
+    totalRetIVA += l.retIVA      || 0;
+    totalOp    += l.opCIVA       || 0;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${l.fechaDisplay}</td>
+      <td style="font-size:0.62rem">${l.coe}</td>
+      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.comprador}</td>
+      <td><span class="tag-grano">${l.grano}</span></td>
+      <td class="monto">${formatMiles(l.cantidadKg)}</td>
+      <td class="monto">$${formatMiles(l.subtotal)}</td>
+      <td class="monto">$${formatMiles(l.importeIVA)}</td>
+      <td class="monto" style="font-weight:500">$${formatMiles(l.opCIVA)}</td>
+      <td class="monto">$${formatMiles(l.retIVA)}</td>
+      <td class="monto">$${formatMiles(l.retGanancias)}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  // KPIs
+  document.getElementById('kpiCantidad').textContent = liquidaciones.length;
+  document.getElementById('kpiKg').textContent       = formatMiles(totalKg);
+  document.getElementById('kpiIva').textContent      = formatPesos(totalIVA);
+  document.getElementById('kpiRetIva').textContent   = formatPesos(totalRetIVA);
+  document.getElementById('kpiTotal').textContent    = formatPesos(totalOp);
+}
+
+// ═══════════════════════════════════════════════════
+// GENERACIÓN DE ARCHIVOS
+// ═══════════════════════════════════════════════════
+function generarArchivos() {
+  if (!liquidaciones.length) return;
+
+  periodo = document.getElementById('cfgPeriodo').value || 'periodo';
+  const mes = periodo.replace('/', '_');
+
+  log('▸ Generando archivos...', 'inf');
+
+  try {
+    // ── 1. TXT CABECERA ──
+    const lineasCbte = liquidaciones.map(l => generarLineaCabecera(l));
+    const txtCab = lineasCbte.join('\r\n') + '\r\n';
+    cabBlob = encodeLatin1(txtCab);
+    log(`✓ VENTAS_CABECERA.txt · ${lineasCbte.length} registros × 266 chars`, 'ok');
+
+    // ── 2. TXT ALÍCUOTAS ──
+    const lineasAlic = liquidaciones.map(l => generarLineaAlicuota(l));
+    const txtAlic = lineasAlic.join('\r\n') + '\r\n';
+    alicBlob = encodeLatin1(txtAlic);
+    log(`✓ VENTAS_ALICUOTAS.txt · ${lineasAlic.length} registros × 62 chars`, 'ok');
+
+    // ── 3. EXCEL ──
+    excelBlob = generarExcel();
+    log(`✓ Liquidaciones.xlsx · ${liquidaciones.length} hojas`, 'ok');
+
+    // Habilitar descargas
+    ['dlExcel','dlCabecera','dlAlicuotas'].forEach(id => {
+      document.getElementById(id).classList.remove('disabled');
+    });
+    // Actualizar nombres con período
+    document.querySelector('#dlCabecera .nombre').textContent  = `VENTAS_CABECERA_${mes}.txt`;
+    document.querySelector('#dlAlicuotas .nombre').textContent = `VENTAS_ALICUOTAS_${mes}.txt`;
+    document.querySelector('#dlExcel .nombre').textContent     = `Liquidaciones_${mes}.xlsx`;
+
+    mostrarAlerta('alertaOk', `✓ Archivos generados correctamente. ${liquidaciones.length} liquidaciones procesadas.`, 'ok');
+    log('▸ ¡Listo! Hacé clic en cada archivo para descargarlo.', 'inf');
+
+  } catch(e) {
+    log('✗ Error: ' + e.message, 'err');
+    mostrarAlerta('alertaOk', '✗ Error al generar: ' + e.message, 'err');
+  }
+}
+
+// ── FORMATO FIJO PARA ARCHIVOS ──
+function fi(v, largo = 15) {
+  const neg = v < 0; v = Math.abs(v);
+  v = Math.floor(v * 100) / 100;
+  const ent = Math.floor(v);
+  const dec = Math.round((v - ent) * 100);
+  let s = String(ent).padStart(largo - 2, '0') + String(dec).padStart(2, '0');
+  if (neg) s = '-' + s.slice(1);
+  return s;
+}
+function fn(v, l) { return String(Math.floor(Math.abs(v))).padStart(l, '0').slice(-l); }
+function fa(v, l) { 
+  // Reemplazar caracteres especiales para Windows-1252 puro en TXT
+  const s = String(v)
+    .replace(/Ñ/g,'N').replace(/ñ/g,'n')
+    .replace(/Á/g,'A').replace(/É/g,'E').replace(/Í/g,'I').replace(/Ó/g,'O').replace(/Ú/g,'U')
+    .replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i').replace(/ó/g,'o').replace(/ú/g,'u');
+  return s.slice(0, l).padEnd(l, ' '); 
+}
+
+function generarLineaCabecera(l) {
+  const nro  = l.coe.slice(-8).padStart(20, '0');  // ceros, repetido 2 veces
+  const cuit = (l.cuitComprador||'').replace(/-/g,'').padStart(20,'0');
+  const tipo = l.tipoCbte || '033';
+  const linea =
+    fn(l.fecha, 8)       +  //  1-8    fecha         (8)
+    tipo                 +  //  9-11   tipo cbte      (3)
+    '00000'              +  //  12-16  pto vta        (5)
+    nro                  +  //  17-36  nro cbte      (20) ceros
+    nro                  +  //  37-56  nro cbte rep  (20) ceros
+    '80'                 +  //  57-58  cod doc        (2)
+    cuit                 +  //  59-78  cuit          (20)
+    fa(l.comprador, 30)  +  //  79-108 razón social  (30)
+    fi(l.opCIVA)         +  // 109-123 total c/IVA   (15)
+    fi(0)                +  // 124-138 no gravado    (15)
+    fi(0)                +  // 139-153 perc no cat   (15)
+    fi(0)                +  // 154-168 op exentas    (15)
+    fi(0)                +  // 169-183 perc IVA      (15)
+    fi(0)                +  // 184-198 perc nac      (15)
+    fi(0)                +  // 199-213 perc IIBB     (15)
+    fi(0)                +  // 214-228 perc mun      (15)
+    'PES'                +  // 229-231 moneda         (3)
+    '0001000000'         +  // 232-241 tipo cambio   (10)
+    '1'                  +  // 242    cant alíc IVA   (1)
+    '0'                  +  // 243    cod operación   (1)
+    fi(0)                +  // 244-258 otros trib    (15)
+    '00000000';             // 259-266 fecha vto      (8)
+  if (linea.length !== 266) throw new Error(`Cabecera COE ${l.coe}: ${linea.length} chars (esperado 266)`);
+  return linea;
+}
+
+function generarLineaAlicuota(l) {
+  const nro  = l.coe.slice(-8).padStart(20, '0');  // ceros
+  const tipo = l.tipoCbte || '033';
+  const linea =
+    tipo           +  // 1-3   tipo cbte  (3)
+    '00000'        +  // 4-8   pto vta    (5)
+    nro            +  // 9-28  nro cbte  (20)
+    fi(l.subtotal) +  // 29-43 neto grav (15)
+    '0004'         +  // 44-47 cód alíc   (4)
+    fi(l.importeIVA); // 48-62 imp liq   (15)
+  if (linea.length !== 62) throw new Error(`Alícuota COE ${l.coe}: ${linea.length} chars (esperado 62)`);
+  return linea;
+}
+
+function encodeLatin1(str) {
+  const bytes = new Uint8Array(str.length);
+  for (let i = 0; i < str.length; i++) bytes[i] = str.charCodeAt(i) & 0xff;
+  return new Blob([bytes], { type: 'text/plain;charset=windows-1252' });
+}
+
+// ══════════════════════════════════════════════════════════════
+// EXCEL PROLIJO — con estilos, colores, grupos y totales
+// ══════════════════════════════════════════════════════════════
+function generarExcel() {
+  const wb = XLSX.utils.book_new();
+  const periodo = document.getElementById('cfgPeriodo').value || '';
+  const vendedor = document.getElementById('cfgVendedor').value || '';
+  const cuitVend = document.getElementById('cfgCuitVendedor').value || '';
+
+  // ── Paleta de colores ──
+  const C = {
+    azulOscuro:  '1F3864',
+    azulMedio:   '2E75B6',
+    azulClaro:   'D6E4F0',
+    azulFila:    'EBF3FB',
+    verdeOscuro: '1F5C2E',
+    verdeMedio:  '375623',
+    verdeClaro:  'E2EFDA',
+    dorado:      'C9A84C',
+    blanco:      'FFFFFF',
+    grisClaro:   'F2F2F2',
+    rojo:        'C00000',
+    rojoClaro:   'FFD7D7',
+    amarillo:    'FFF2CC',
+  };
+
+  // Helpers de estilo
+  const fnt  = (bold, color='FFFFFF', sz=9, name='Arial') => ({bold, color:{rgb:color}, sz, name});
+  const fill = (fg) => ({patternType:'solid', fgColor:{rgb:fg}});
+  const aln  = (h='center', wrap=true) => ({horizontal:h, vertical:'center', wrapText:wrap});
+  const brd  = (color='AAAAAA', style='thin') => {
+    const s = {style, color:{rgb:color}};
+    return {top:s, bottom:s, left:s, right:s};
+  };
+  const brdMed = (color='1F3864') => {
+    const s = {style:'medium', color:{rgb:color}};
+    return {top:s, bottom:s, left:s, right:s};
+  };
+  const numFmt$ = '"$"#,##0.00';
+  const numFmtN = '#,##0';
+
+  function celda(v, font, fillC, alignment, border, numFmt) {
+    const c = {v, t: typeof v === 'number' ? 'n' : 's'};
+    const s = {};
+    if (font)      s.font      = font;
+    if (fillC)     s.fill      = fill(fillC);
+    if (alignment) s.alignment = alignment;
+    if (border)    s.border    = border;
+    if (numFmt)    s.numFmt    = numFmt;
+    c.s = s;
+    return c;
+  }
+
+  function setCelda(ws, rf, c) { ws[rf] = c; }
+
+  function rango(ws, r, estiloRelleno) {
+    if (!ws['!merges']) ws['!merges'] = [];
+    const [a,b] = r.split(':');
+    const inicio = XLSX.utils.decode_cell(a);
+    const fin    = XLSX.utils.decode_cell(b);
+    ws['!merges'].push({s: inicio, e: fin});
+    if (estiloRelleno) {
+      for (let ri = inicio.r; ri <= fin.r; ri++) {
+        for (let ci = inicio.c; ci <= fin.c; ci++) {
+          const key = XLSX.utils.encode_cell({r:ri, c:ci});
+          if (!ws[key]) ws[key] = {v:'', t:'s', s: estiloRelleno};
+        }
+      }
+    }
+  }
+
+  function col(n) { return XLSX.utils.encode_col(n); }
+  function ref(r,c) { return XLSX.utils.encode_cell({r,c}); }
+
+  // ════════════════════════════════════════════════
+  // HOJA 1 — LIQUIDACIONES
+  // ════════════════════════════════════════════════
+  const ws1 = {'!ref':'A1:U200'};
+
+  // Fila 1: Título
+  const sT1 = {font:fnt(true,C.azulOscuro,13), fill:fill(C.azulClaro), alignment:aln('center'), border:brd(C.azulMedio)};
+  rango(ws1, 'A1:U1', sT1);
+  setCelda(ws1,'A1', celda(
+    `LIQUIDACIONES PRIMARIAS DE GRANOS — ${periodo.toUpperCase()}`,
+    fnt(true,C.azulOscuro,13), C.azulClaro, aln('center'), brd(C.azulMedio)
+  ));
+
+  // Fila 2: Subtítulo vendedor
+  const sT2 = {font:{bold:false,color:{rgb:'444444'},sz:9,italic:true,name:'Arial'}, fill:fill(C.azulClaro), alignment:aln('center'), border:brd('AAAAAA')};
+  rango(ws1,'A2:U2', sT2);
+  setCelda(ws1,'A2', celda(
+    `Vendedor: ${vendedor}  |  CUIT: ${cuitVend}  |  Comprador: ACEITERA GENERAL DEHEZA S.A.`,
+    {bold:false, color:{rgb:'444444'}, sz:9, italic:true, name:'Arial'},
+    C.azulClaro, aln('center'), brd('AAAAAA')
+  ));
+
+  // Fila 3: Grupos de columnas
+  const grupos1 = [
+    {s:'A3',e:'G3',label:'IDENTIFICACIÓN'},
+    {s:'H3',e:'L3',label:'OPERACIÓN'},
+    {s:'M3',e:'N3',label:'DEDUCCIONES'},
+    {s:'O3',e:'Q3',label:'RETENCIONES'},
+    {s:'R3',e:'U3',label:'IMPORTES TOTALES'},
+  ];
+  const sGrupo = {font:fnt(true,C.blanco,8), fill:fill(C.azulOscuro), alignment:aln('center'), border:brdMed()};
+  grupos1.forEach(g => {
+    rango(ws1,`${g.s}:${g.e}`, sGrupo);
+    setCelda(ws1, g.s, celda(g.label, fnt(true,C.blanco,8), C.azulOscuro, aln('center'), brdMed()));
+  });
+
+  // Fila 4: Cabeceras detalle
+  const hdrs1 = [
+    'FECHA','N° COE','TIPO OP.','COMPRADOR','GRANO','GRADO','N° COMPROBANTE',
+    'KG','PRECIO/KG','SUBTOTAL','% IVA','IMP. IVA','OP. c/IVA',
+    'DEDUC.\nCONCEPTO','DEDUCCIONES',
+    'RET. IVA\n(7%)','RET. GCIAS\n(2%)','OTRAS RET.',
+    'TOTAL\nOPERACIÓN','IVA RG\n4310','PAGO s/\nCONDICIONES'
+  ];
+  hdrs1.forEach((h,i) => {
+    setCelda(ws1, ref(3,i), celda(h, fnt(true,C.blanco,7.5), C.azulMedio, aln('center'), brd('2E75B6')));
+  });
+
+  // Filas de datos
+  liquidaciones.forEach((l,ri) => {
+    const rowColor = ri%2===0 ? C.azulFila : C.blanco;
+    const vals = [
+      l.fechaDisplay, l.coe, '1 - Compraventa', l.comprador, l.grano, l.grado, l.coe,
+      l.cantidadKg||0, l.precioKg||0, l.subtotal, 10.5, l.importeIVA, l.opCIVA,
+      'Sellado SF', l.deducciones,
+      l.retIVA, l.retGanancias, 0,
+      l.totalOp, l.ivaRG4310||0, l.pagoCond
+    ];
+    const fmts = [
+      null,null,null,null,null,null,null,
+      numFmtN, numFmt$, numFmt$, '0.0"%"', numFmt$, numFmt$,
+      null, numFmt$,
+      numFmt$, numFmt$, numFmt$,
+      numFmt$, numFmt$, numFmt$
+    ];
+    const aligns = vals.map((_,i)=>
+      i===3 || i===13 ? aln('left') : aln('center',false)
+    );
+    vals.forEach((v,i) => {
+      setCelda(ws1, ref(4+ri, i), celda(v,
+        {bold:false, color:{rgb:'1A1A1A'}, sz:8, name:'Arial'},
+        rowColor, aligns[i], brd(), fmts[i]
+      ));
+    });
+  });
+
+  // Fila total
+  const totRow = 4 + liquidaciones.length;
+  const totVals = [
+    'TOTALES','','','','','','',
+    liquidaciones.reduce((s,l)=>s+(l.cantidadKg||0),0), '',
+    liquidaciones.reduce((s,l)=>s+l.subtotal,0), '',
+    liquidaciones.reduce((s,l)=>s+l.importeIVA,0),
+    liquidaciones.reduce((s,l)=>s+l.opCIVA,0),
+    '', liquidaciones.reduce((s,l)=>s+l.deducciones,0),
+    liquidaciones.reduce((s,l)=>s+l.retIVA,0),
+    liquidaciones.reduce((s,l)=>s+l.retGanancias,0), 0,
+    liquidaciones.reduce((s,l)=>s+l.totalOp,0),
+    liquidaciones.reduce((s,l)=>s+(l.ivaRG4310||0),0),
+    liquidaciones.reduce((s,l)=>s+l.pagoCond,0),
+  ];
+  const totFmts = [null,null,null,null,null,null,null,numFmtN,null,numFmt$,null,numFmt$,numFmt$,null,numFmt$,numFmt$,numFmt$,numFmt$,numFmt$,numFmt$,numFmt$];
+  totVals.forEach((v,i) => {
+    setCelda(ws1, ref(totRow,i), celda(v,
+      fnt(true, C.blanco, 8), C.azulOscuro,
+      aln('center',false), brdMed(), totFmts[i]
+    ));
+  });
+
+  ws1['!cols'] = [12,16,16,28,10,7,18, 12,11,14,7,13,14, 18,13, 13,13,12, 14,13,14].map(w=>({wch:w}));
+  ws1['!rows'] = [
+    {hpt:20},{hpt:14},{hpt:16},{hpt:36},
+    ...liquidaciones.map(()=>({hpt:14})),
+    {hpt:16}
+  ];
+  ws1['!ref'] = `A1:${col(20)}${totRow+1}`;
+  ws1['!freeze'] = {xSplit:0, ySplit:4};
+  XLSX.utils.book_append_sheet(wb, ws1, 'Liquidaciones');
+
+  // ════════════════════════════════════════════════
+  // HOJA 2 — IVA SIMPLE ARCA
+  // ════════════════════════════════════════════════
+  const ws2 = {};
+  let r2 = 0; // fila actual (0-based)
+
+  // Título
+  rango(ws2,'A1:S1',{font:fnt(true,C.azulOscuro,13),fill:fill(C.azulClaro),alignment:aln('center'),border:brd(C.azulMedio)});
+  setCelda(ws2,'A1', celda(
+    `EXPORTADOR IVA SIMPLE — ARCA | LIBRO IVA VENTAS | LPG | ${periodo}`,
+    fnt(true,C.azulOscuro,13), C.azulClaro, aln('center'), brd(C.azulMedio)
+  ));
+  rango(ws2,'A2:S2',{font:{bold:false,color:{rgb:'444444'},sz:9,name:'Arial'},fill:fill(C.azulClaro),alignment:aln('center'),border:brd('AAAAAA')});
+  setCelda(ws2,'A2', celda(
+    `Vendedor/Productor: ${vendedor}  |  CUIT: ${cuitVend}  |  Tipo Cbte: 033 (LPG Ventas)  |  Período: ${periodo}`,
+    {bold:false,color:{rgb:'444444'},sz:9,italic:true,name:'Arial'},
+    C.azulClaro, aln('center'), brd('AAAAAA')
+  ));
+  rango(ws2,'A3:S3',{font:{bold:false,color:{rgb:'7B0000'},sz:8,name:'Arial'},fill:fill(C.amarillo),alignment:aln('left'),border:brd('FF8C00')});
+  setCelda(ws2,'A3', celda(
+    '⚠  TIPO 033 = LPG Ventas productor  |  Nro cbte = últimos 8 dígitos del COE  |  Alícuota 0004 = 10,5%  |  Codificación: Windows-1252 (ANSI)',
+    {bold:false,color:{rgb:'7B0000'},sz:8,italic:true,name:'Arial'},
+    C.amarillo, aln('left'), brd('FF8C00')
+  ));
+  r2 = 3;
+
+  // ── SECCIÓN: ARCHIVO 1 CABECERA ──
+  r2++;
+  rango(ws2,`A${r2+1}:Q${r2+1}`,{font:fnt(true,C.blanco,10),fill:fill(C.azulOscuro),alignment:aln('center'),border:brdMed()});
+  setCelda(ws2,`A${r2+1}`, celda('ARCHIVO 1 — VENTAS_CABECERA.txt  |  266 chars por línea  |  Windows-1252', fnt(true,C.blanco,10), C.azulOscuro, aln('center'), brdMed()));
+  r2++;
+
+  const hdrs2 = ['FECHA\n(AAAAMMDD)','TIPO\n(033)','PTO\nVTA','N° COMPROBANTE\n(últ.8 COE)','COD\nDOC','CUIT\nCOMPRADOR','RAZÓN SOCIAL\nCOMPRADOR','TOTAL\nOP. c/IVA','NO PRECIO\nNETO','PERC NO\nCATEG','OP.\nEXENTAS','PERC\nIVA','PERC\nNAC','PERC\nIIBB','PERC\nMUN','CANT\nALIC','COD\nOP','OTROS\nTRIB','FECHA\nVENC'];
+  hdrs2.forEach((h,i) => {
+    setCelda(ws2, ref(r2,i), celda(h, fnt(true,C.blanco,7), C.verdeMedio, aln('center'), brd('375623')));
+  });
+  r2++;
+
+  liquidaciones.forEach((l,ri) => {
+    const nro = l.coe.slice(-8).padStart(20,'0');
+    const rowC = ri%2===0 ? 'F7FBFF' : C.blanco;
+    const vals2 = [l.fecha,'033','00000',nro,'80',l.cuitComprador.replace(/-/g,'').padStart(20,'0'),
+                   l.comprador,l.opCIVA,0,0,0,0,0,0,0,'1','0',0,'00000000'];
+    const fmts2 = [null,null,null,null,null,null,null,numFmt$,numFmt$,numFmt$,numFmt$,numFmt$,numFmt$,numFmt$,numFmt$,null,null,numFmt$,null];
+    vals2.forEach((v,i) => {
+      setCelda(ws2, ref(r2+ri,i), celda(v,
+        {bold:false,color:{rgb:'1A1A1A'},sz:8,name:'Arial'},
+        rowC, i===6?aln('left',false):aln('center',false), brd(), fmts2[i]
+      ));
+    });
+  });
+
+  // Total cab
+  const totR2 = r2 + liquidaciones.length;
+  rango(ws2,`A${totR2+1}:G${totR2+1}`,{font:fnt(true,C.blanco,8),fill:fill(C.azulOscuro),alignment:aln('center'),border:brdMed()});
+  setCelda(ws2,`A${totR2+1}`, celda('TOTALES', fnt(true,C.blanco,8), C.azulOscuro, aln('center'), brdMed()));
+  setCelda(ws2,ref(totR2,7), celda(
+    liquidaciones.reduce((s,l)=>s+l.opCIVA,0),
+    fnt(true,'1A1A1A',8), C.verdeClaro, aln('center'), brdMed(), numFmt$
+  ));
+  r2 = totR2 + 2;
+
+  // ── SECCIÓN: ARCHIVO 2 ALÍCUOTAS ──
+  rango(ws2,`A${r2+1}:G${r2+1}`,{font:fnt(true,C.blanco,10),fill:fill(C.azulOscuro),alignment:aln('center'),border:brdMed()});
+  setCelda(ws2,`A${r2+1}`, celda('ARCHIVO 2 — VENTAS_ALICUOTAS.txt  |  62 chars por línea  |  SIN FECHA', fnt(true,C.blanco,10), C.azulOscuro, aln('center'), brdMed()));
+  r2++;
+  const hdrs3 = ['TIPO\n(033)','PTO\nVTA','N° COMPROBANTE\n(últ.8 COE)','NETO\nGRAVADO','CÓD\nALÍC\n(0004)','IMP.\nLIQUIDADO','— (ref)\nCOE completo'];
+  hdrs3.forEach((h,i) => {
+    setCelda(ws2, ref(r2,i), celda(h, fnt(true,C.blanco,7), C.verdeMedio, aln('center'), brd('375623')));
+  });
+  r2++;
+
+  liquidaciones.forEach((l,ri) => {
+    const nro = l.coe.slice(-8).padStart(20,'0');
+    const rowC = ri%2===0 ? 'F7FBFF' : C.blanco;
+    const v = ['033','00000',nro,l.subtotal,'0004',l.importeIVA,l.coe];
+    const f = [null,null,null,numFmt$,null,numFmt$,null];
+    v.forEach((val,i) => {
+      setCelda(ws2, ref(r2+ri,i), celda(val,
+        {bold:false,color:{rgb:'1A1A1A'},sz:8,name:'Arial'},
+        rowC, aln('center',false), brd(), f[i]
+      ));
+    });
+  });
+
+  const totR3 = r2 + liquidaciones.length;
+  rango(ws2,`A${totR3+1}:C${totR3+1}`,{font:fnt(true,C.blanco,8),fill:fill(C.azulOscuro),alignment:aln('center'),border:brdMed()});
+  setCelda(ws2,`A${totR3+1}`, celda('TOTALES', fnt(true,C.blanco,8), C.azulOscuro, aln('center'), brdMed()));
+  ['D','F'].forEach((colL,i) => {
+    const suma = liquidaciones.reduce((s,l)=>s+(i===0?l.subtotal:l.importeIVA),0);
+    setCelda(ws2,`${colL}${totR3+1}`, celda(suma, fnt(true,'1A1A1A',8), C.verdeClaro, aln('center'), brdMed(), numFmt$));
+  });
+  r2 = totR3 + 2;
+
+  // ── SECCIÓN: RETENCIONES ──
+  rango(ws2,`A${r2+1}:I${r2+1}`,{font:fnt(true,C.blanco,9),fill:fill(C.rojo),alignment:aln('center'),border:brdMed()});
+  setCelda(ws2,`A${r2+1}`, celda('RETENCIONES SUFRIDAS — RG 4310/2018 (IVA) y RG 2784 (Ganancias)', fnt(true,C.blanco,9), C.rojo, aln('center'), brdMed()));
+  r2++;
+  const hdrsRet = ['PERÍODO','RÉGIMEN','CUIT AGENTE','RAZÓN SOCIAL AGENTE','N° CERT.','FECHA','IMPORTE $','TIPO'];
+  hdrsRet.forEach((h,i) => {
+    setCelda(ws2, ref(r2,i), celda(h, fnt(true,C.blanco,7.5), C.rojo, aln('center'), brd('C00000')));
+  });
+  r2++;
+
+  const retRows = [];
+  liquidaciones.forEach(l => {
+    if (l.retIVA > 0)       retRows.push([periodo, 'RG 4310/2018', l.cuitComprador, l.comprador, '', l.fechaDisplay, l.retIVA,      'IVA']);
+    if (l.retGanancias > 0) retRows.push([periodo, 'RG 2784',      l.cuitComprador, l.comprador, '', l.fechaDisplay, l.retGanancias, 'GANANCIAS']);
+  });
+
+  retRows.forEach((row, ri) => {
+    const rowC = ri%2===0 ? 'FFF0F0' : C.blanco;
+    row.forEach((v,i) => {
+      setCelda(ws2, ref(r2+ri,i), celda(v,
+        {bold:false,color:{rgb:'1A1A1A'},sz:8,name:'Arial'},
+        rowC, i===3?aln('left',false):aln('center',false), brd(), i===6?numFmt$:null
+      ));
+    });
+  });
+
+  const totRet = r2 + retRows.length;
+  rango(ws2,`A${totRet+1}:F${totRet+1}`,{font:fnt(true,C.blanco,8),fill:fill(C.rojo),alignment:aln('center'),border:brdMed()});
+  setCelda(ws2,`A${totRet+1}`, celda('TOTAL RETENCIONES IVA SUFRIDAS', fnt(true,C.blanco,8), C.rojo, aln('center'), brdMed()));
+  const sumaRetIVA = retRows.filter(r=>r[7]==='IVA').reduce((s,r)=>s+r[6],0);
+  setCelda(ws2,`G${totRet+1}`, celda(sumaRetIVA, fnt(true,'1A1A1A',8), C.rojoClaro, aln('center'), brdMed(), numFmt$));
+
+  // ── RESUMEN DÉBITO FISCAL ──
+  r2 = totRet + 2;
+  rango(ws2,`A${r2+1}:E${r2+1}`,{font:fnt(true,C.blanco,10),fill:fill(C.verdeOscuro),alignment:aln('center'),border:brdMed()});
+  setCelda(ws2,`A${r2+1}`, celda(`RESUMEN DÉBITO FISCAL — ${periodo}`, fnt(true,C.blanco,10), C.verdeOscuro, aln('center'), brdMed()));
+
+  const resumenRows = [
+    [`Total Débito Fiscal 10,5% (ventas de granos)`, liquidaciones.reduce((s,l)=>s+l.importeIVA,0)],
+    [`(-) Retenciones IVA sufridas RG 4310/2018`,   -liquidaciones.reduce((s,l)=>s+l.retIVA,0)],
+    [`(=) Saldo Débito Fiscal Neto a declarar`,      liquidaciones.reduce((s,l)=>s+l.importeIVA-l.retIVA,0)],
+  ];
+  resumenRows.forEach(([label, val], ri) => {
+    const isTot = ri === 2;
+    const rowC  = isTot ? 'A9D18E' : C.verdeClaro;
+    rango(ws2,`A${r2+2+ri}:C${r2+2+ri}`,{font:{bold:false,color:{rgb:'1A1A1A'},sz:9,name:'Arial'},fill:fill(C.verdeClaro),alignment:aln('left'),border:brd()});
+    setCelda(ws2,`A${r2+2+ri}`, celda(label, fnt(isTot,isTot?C.blanco:'1A1A1A',9), rowC, aln('left',false), brd()));
+    setCelda(ws2,`D${r2+2+ri}`, celda(val,   fnt(isTot,isTot?C.blanco:'1A1A1A',9), rowC, aln('center',false), brd(), numFmt$));
+  });
+
+  ws2['!cols'] = [12,7,8,22,6,18,28,14,13,12,12,12,12,12,12,6,5,12,10].map(w=>({wch:w}));
+  ws2['!ref']  = `A1:S${totRet+10}`;
+  ws2['!freeze'] = {xSplit:0, ySplit:4};
+  XLSX.utils.book_append_sheet(wb, ws2, 'IVA Simple - ARCA');
+
+  return XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+}
+
+// ═══════════════════════════════════════════════════
+// DESCARGAS
+// ═══════════════════════════════════════════════════
+const mes = () => (document.getElementById('cfgPeriodo').value || 'periodo').replace('/', '_');
+
+function descargarExcel() {
+  if (!excelBlob) return;
+  const blob = new Blob([excelBlob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  descargar(blob, `Liquidaciones_${mes()}.xlsx`);
+}
+function descargarCabecera() {
+  if (!cabBlob) return;
+  descargar(cabBlob, `VENTAS_CABECERA_${mes()}.txt`);
+}
+function descargarAlicuotas() {
+  if (!alicBlob) return;
+  descargar(alicBlob, `VENTAS_ALICUOTAS_${mes()}.txt`);
+}
+function descargar(blob, nombre) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = nombre;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  log(`↓ Descargando ${nombre}`, 'ok');
+}
+
+// ═══════════════════════════════════════════════════
+// LIMPIAR
+// ═══════════════════════════════════════════════════
+function limpiarTodo() {
+  liquidaciones = [];
+  excelBlob = cabBlob = alicBlob = null;
+  document.getElementById('pdfList').innerHTML = '';
+  document.getElementById('tablaBody').innerHTML = '';
+  document.getElementById('panelTabla').style.display   = 'none';
+  document.getElementById('panelResumen').style.display = 'none';
+  document.getElementById('btnGenerar').disabled = true;
+  ['dlExcel','dlCabecera','dlAlicuotas'].forEach(id =>
+    document.getElementById(id).classList.add('disabled'));
+  document.getElementById('alertaOk').className = 'alerta';
+  document.getElementById('alertaCarga').className = 'alerta';
+  document.getElementById('logPanel').innerHTML = '<span class="log-inf">▸ Listo para nueva carga...</span>';
+  document.getElementById('cfgVendedor').value     = '';
+  document.getElementById('cfgCuitVendedor').value = '';
+  document.getElementById('cfgPeriodo').value      = '';
+}
+</script>
+</body>
+</html>
