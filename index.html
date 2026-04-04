@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -6,6 +6,7 @@
 <title>LPG · Automatizador de Liquidaciones</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Fraunces:ital,wght@0,300;0,600;0,900;1,300&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -405,9 +406,53 @@
     header { padding: 1.2rem; }
     .header-text h1 { font-size: 1.4rem; }
   }
+
+  /* ── LOGIN ── */
+  #panelLogin {
+    position: fixed; inset: 0; background: var(--verde);
+    display: flex; align-items: center; justify-content: center; z-index: 9999;
+  }
+  .login-box {
+    background: var(--crema); border-radius: 16px; padding: 48px 40px;
+    width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); text-align: center;
+  }
+  .login-box h2 { font-family: 'Fraunces', serif; color: var(--verde); font-size: 1.8rem; margin-bottom: 6px; }
+  .login-box p  { color: var(--gris); font-size: 0.8rem; margin-bottom: 32px; }
+  .login-box input {
+    width: 100%; padding: 12px 16px; border: 2px solid var(--crema-oscuro);
+    border-radius: 8px; font-family: 'DM Mono', monospace; font-size: 0.9rem;
+    background: white; color: var(--texto); margin-bottom: 14px; outline: none;
+    transition: border-color 0.2s;
+  }
+  .login-box input:focus { border-color: var(--verde-claro); }
+  .login-box button {
+    width: 100%; padding: 14px; background: var(--verde); color: white;
+    border: none; border-radius: 8px; font-family: 'DM Mono', monospace;
+    font-size: 0.95rem; cursor: pointer; transition: background 0.2s;
+  }
+  .login-box button:hover { background: var(--verde-medio); }
+  .login-error { color: var(--error); font-size: 0.8rem; margin-top: 12px; min-height: 20px; }
+  .login-logo { font-size: 3rem; margin-bottom: 16px; }
+  #appMain { display: none; }
 </style>
 </head>
 <body>
+
+<!-- PANEL LOGIN -->
+<div id="panelLogin">
+  <div class="login-box">
+    <div class="login-logo">🌾</div>
+    <h2>LPG · ARCA</h2>
+    <p>Automatizador de Liquidaciones Primarias de Granos</p>
+    <input type="text" id="loginUsuario" placeholder="Usuario" autocomplete="username" />
+    <input type="password" id="loginClave" placeholder="Contraseña" autocomplete="current-password" />
+    <button onclick="iniciarSesion()">Ingresar</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<!-- APP PRINCIPAL -->
+<div id="appMain">
 
 <header>
   <div class="header-icon">🌾</div>
@@ -564,6 +609,56 @@
 <footer>LPG Automatizador · Liquidaciones Primarias de Granos · IVA Simple ARCA · Tipo 033 · Libro Ventas</footer>
 
 <script>
+
+// ═══════════════════════════════════════════════════
+// SUPABASE AUTH
+// ═══════════════════════════════════════════════════
+const SUPA_URL = 'https://fimxirgrgeruhclzpoxc.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpbXhpcmdyZ2VydWhjbHpwb3hjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMDcwMTksImV4cCI6MjA4OTg4MzAxOX0.r-ce_ioKgUK4uP7UNsybl1Ov86mWj0ZsVvCTlQIKvS4';
+const { createClient } = supabase;
+const supa = createClient(SUPA_URL, SUPA_KEY);
+
+async function sha256(msg) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function iniciarSesion() {
+  const usuario = document.getElementById('loginUsuario').value.trim().toLowerCase();
+  const clave   = document.getElementById('loginClave').value;
+  const errEl   = document.getElementById('loginError');
+  errEl.textContent = '';
+  if (!usuario || !clave) { errEl.textContent = 'Completá usuario y contraseña.'; return; }
+  const hash = await sha256(clave);
+  const { data, error } = await supa
+    .from('usuarios')
+    .select('usuario, nombre, plan, activo, vencimiento, clave_hash')
+    .eq('usuario', usuario)
+    .single();
+  if (error || !data) { errEl.textContent = 'Usuario no encontrado.'; return; }
+  if (data.clave_hash !== hash) { errEl.textContent = 'Contraseña incorrecta.'; return; }
+  if (!data.activo) { errEl.textContent = 'Usuario inactivo. Contactá al administrador.'; return; }
+  if (data.vencimiento && new Date(data.vencimiento) < new Date()) {
+    errEl.textContent = 'Acceso vencido. Contactá al administrador.'; return;
+  }
+  // Actualizar último acceso
+  await supa.from('usuarios').update({ ultimo_acceso: new Date().toISOString() }).eq('usuario', usuario);
+  // Mostrar app
+  document.getElementById('panelLogin').style.display = 'none';
+  document.getElementById('appMain').style.display = 'block';
+  log(`✓ Bienvenido, ${data.nombre} · Plan: ${data.plan}`, 'ok');
+}
+
+// Enter en los campos de login
+document.addEventListener('DOMContentLoaded', () => {
+  ['loginUsuario','loginClave'].forEach(id => {
+    document.getElementById(id)?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') iniciarSesion();
+    });
+  });
+});
+
+
 // ═══════════════════════════════════════════════════
 // CONFIGURACIÓN PDF.js
 // ═══════════════════════════════════════════════════
@@ -1420,5 +1515,7 @@ function limpiarTodo() {
   document.getElementById('cfgPeriodo').value      = '';
 }
 </script>
+
+</div><!-- /appMain -->
 </body>
 </html>
