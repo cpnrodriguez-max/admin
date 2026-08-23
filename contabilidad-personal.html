@@ -7,7 +7,11 @@
 <meta name="description" content="Gastos, presupuestos, reportes, cuentas y transferencias con conversión automática.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Contabilidad">
 <meta name="theme-color" content="#F4F5F7">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300&display=swap" rel="stylesheet">
@@ -954,6 +958,12 @@ function render(){
 }
 
 render();
+
+if("serviceWorker" in navigator){
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./service-worker.js").catch(() => { /* offline no disponible, la app igual funciona online */ });
+  });
+}
 </script>
 </body>
 </html>
