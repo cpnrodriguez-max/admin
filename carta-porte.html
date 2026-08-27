@@ -789,7 +789,7 @@ function construirHojaCartas(cartasSubset, tituloHoja) {
   });
 
   ws['!cols'] = [14, 11, 16, 28, 20, 13, 13, 12, 10, 28].map(w => ({ wch: w }));
-  ws['!rows'] = [{ hpt: 20 }, { hpt: 14 }, { hpt: 16 }, { hpt: 30 }, ...cartasSubset.map(() => ({ hpt: 14 })), { hpt: 16 }];
+  ws['!rows'] = [{ hpt: 24 }, { hpt: 18 }, { hpt: 20 }, { hpt: 34 }, ...cartasSubset.map(() => ({ hpt: 22 })), { hpt: 20 }];
   ws['!ref'] = `A1:${xlsCol(9)}${totRow + 1}`;
   ws['!freeze'] = { xSplit: 0, ySplit: 4 };
   return ws;
