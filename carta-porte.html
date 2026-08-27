@@ -267,30 +267,25 @@
         </ol>
 
         <h4>Opción B — Script de consola (F12), en lote</h4>
-        <p>Con la lista de Cartas de Porte ya abierta en AFIP, presioná <code>F12</code> → pestaña <code>Console</code>, pegá este script y presioná Enter. Busca los botones/links de "ver PDF" de cada fila y los va abriendo/descargando de a uno, respetando tu sesión ya iniciada:</p>
+        <p>Verificado en <code>cpea-app.afip.gob.ar/cpe-web</code> → pantalla <strong>Consulta de Solicitadas</strong> (<code>#/consultar-solicitadas</code>). Con esa pantalla abierta y la página de 10 resultados a la vista, presioná <code>F12</code> → pestaña <code>Console</code>, pegá este script y Enter. Clickea los 10 botones "Imprimir" de la página actual (se descargan directo, sin diálogo extra), respetando tu sesión ya iniciada:</p>
         <div class="caja-pre">
           <button class="btn-copiar" onclick="copiarScript()">Copiar</button>
           <pre id="scriptF12">(async function () {
-  const candidatos = [...document.querySelectorAll('a, button, [onclick], img')].filter(el => {
-    const txt  = (el.getAttribute('title') || el.getAttribute('alt') || el.textContent || '').toLowerCase();
-    const href = (el.getAttribute('href') || el.getAttribute('onclick') || '').toLowerCase();
-    return txt.includes('pdf') || txt.includes('imprimir') || txt.includes('ver cp')
-        || href.includes('pdf') || href.includes('imprimir');
-  });
-  console.log('Encontrados', candidatos.length, 'posibles botones/links de PDF');
-  if (!candidatos.length) {
-    console.log('No encontré nada. Click derecho sobre el ícono "ver PDF" de una fila > Inspeccionar, y ajustá el filtro de arriba con lo que veas ahí.');
+  const botones = [...document.querySelectorAll('button.fa-print, button[title="Imprimir"]')];
+  console.log('Botones "Imprimir" encontrados:', botones.length);
+  if (!botones.length) {
+    console.log('No encontré nada. Click derecho sobre el botón "Imprimir" de una fila > Inspeccionar, y ajustá el selector de arriba con lo que veas ahí.');
     return;
   }
-  for (let i = 0; i < candidatos.length; i++) {
-    candidatos[i].click();
-    console.log(`(${i+1}/${candidatos.length}) click disparado`);
-    await new Promise(r => setTimeout(r, 1500));
+  for (let i = 0; i < botones.length; i++) {
+    botones[i].click();
+    console.log(`(${i + 1}/${botones.length}) click disparado`);
+    await new Promise(r => setTimeout(r, 2000));
   }
-  console.log('Listo. Si se abrieron pestañas nuevas en vez de descargar, guardalas con Ctrl+S.');
+  console.log('Listo esta página. Andá a la página siguiente (10 resultados más) y volvé a correr este mismo script.');
 })();</pre>
         </div>
-        <p><strong>Notas:</strong> es un script genérico (no conozco la estructura exacta de esa pantalla de AFIP), puede necesitar que ajustes las palabras del filtro según lo que encuentres al inspeccionar un botón. Si el navegador bloquea las pestañas emergentes, permitilas para el sitio de AFIP. Nunca compartas tu Clave Fiscal conmigo ni con ningún script.</p>
+        <p><strong>Notas:</strong> el script solo procesa la página de 10 resultados visible; repetilo en cada página hasta terminar. Si AFIP cambia el diseño de esa pantalla el selector puede dejar de funcionar — en ese caso inspeccioná de nuevo el botón "Imprimir" y avisame para actualizarlo. Nunca compartas tu Clave Fiscal conmigo ni con ningún script.</p>
       </div>
     </div>
 
