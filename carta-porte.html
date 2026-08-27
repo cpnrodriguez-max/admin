@@ -334,6 +334,7 @@
           <thead>
             <tr>
               <th>CTG</th>
+              <th>Fecha</th>
               <th>CUIT Productor</th>
               <th>Productor</th>
               <th>Localidad</th>
@@ -528,6 +529,10 @@ async function extraerDatosCPE(file) {
   const ctg = valorDeLinea(/CTG:\s*(\d+)/);
   cpe.ctg = ctg || '';
 
+  // Fecha de la Carta de Porte (encabezado, no confundir con Fecha Arribo / Fecha Descarga)
+  const fecha = valorDeLinea(/\bFecha:\s*(\d{2}\/\d{2}\/\d{4})/);
+  cpe.fecha = fecha || '';
+
   // Productor: preferir "Remitente Comercial Productor"; si está vacío, usar "Titular Carta de Porte"
   let productorRaw = valorDeLinea(/Remitente Comercial Productor:\s*(\d{2}-?\d{8}-?\d[^\n]*)/);
   if (!productorRaw) productorRaw = valorDeLinea(/Titular Carta de Porte:\s*(\d{2}-?\d{8}-?\d[^\n]*)/);
@@ -659,6 +664,7 @@ function actualizarUI() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td style="font-size:0.62rem">${c.ctg || '—'}</td>
+      <td>${c.fecha || '—'}</td>
       <td>${c.cuitProductor || '—'}</td>
       <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;">${c.nombreProductor || '—'}</td>
       <td>${c.localidad || '—'}</td>
@@ -684,42 +690,138 @@ function generarExcel() {
   log('▸ Generando Excel...', 'inf');
 
   try {
-    const encabezados = ['CTG', 'CUIT Productor', 'Productor', 'Localidad', 'Peso Bruto (kg)', 'Peso Neto (kg)', 'Grano', 'Campaña', 'Destinatario'];
-    const filas = cartas.map(c => ([
-      c.ctg || '',
-      c.cuitProductor || '',
-      c.nombreProductor || '',
-      c.localidad || '',
-      c.pesoBruto ?? '',
-      c.pesoNeto ?? '',
-      c.grano || '',
-      c.campania || '',
-      c.destinatario || ''
-    ]));
+    // ── Paleta de colores (misma identidad que la planilla LPG) ──
+    const C = {
+      azulOscuro:  '1F3864',
+      azulMedio:   '2E75B6',
+      azulClaro:   'D6E4F0',
+      azulFila:    'EBF3FB',
+      verdeOscuro: '1F5C2E',
+      verdeMedio:  '375623',
+      verdeClaro:  'E2EFDA',
+      dorado:      'C9A84C',
+      blanco:      'FFFFFF',
+    };
 
-    const datos = [encabezados, ...filas];
-    const ws = XLSX.utils.aoa_to_sheet(datos);
+    const fnt = (bold, color = 'FFFFFF', sz = 9, name = 'Arial') => ({ bold, color: { rgb: color }, sz, name });
+    const fill = (fg) => ({ patternType: 'solid', fgColor: { rgb: fg } });
+    const aln = (h = 'center', wrap = true) => ({ horizontal: h, vertical: 'center', wrapText: wrap });
+    const brd = (color = 'AAAAAA', style = 'thin') => {
+      const s = { style, color: { rgb: color } };
+      return { top: s, bottom: s, left: s, right: s };
+    };
+    const brdMed = (color = '1F3864') => {
+      const s = { style: 'medium', color: { rgb: color } };
+      return { top: s, bottom: s, left: s, right: s };
+    };
+    const numFmtN = '#,##0';
 
-    // Encabezado con estilo
-    const rango = XLSX.utils.decode_range(ws['!ref']);
-    for (let col = rango.s.c; col <= rango.e.c; col++) {
-      const addr = XLSX.utils.encode_cell({ r: 0, c: col });
-      if (ws[addr]) {
-        ws[addr].s = {
-          font: { bold: true, color: { rgb: 'F5F0E8' } },
-          fill: { fgColor: { rgb: '1A3A2A' } },
-          alignment: { horizontal: 'center' }
-        };
+    function celda(v, font, fillC, alignment, border, numFmt) {
+      const c = { v, t: typeof v === 'number' ? 'n' : 's' };
+      const s = {};
+      if (font)      s.font      = font;
+      if (fillC)     s.fill      = fill(fillC);
+      if (alignment) s.alignment = alignment;
+      if (border)    s.border    = border;
+      if (numFmt)    s.numFmt    = numFmt;
+      c.s = s;
+      return c;
+    }
+    function setCelda(ws, rf, c) { ws[rf] = c; }
+    function rango(ws, r, estiloRelleno) {
+      if (!ws['!merges']) ws['!merges'] = [];
+      const [a, b] = r.split(':');
+      const inicio = XLSX.utils.decode_cell(a);
+      const fin = XLSX.utils.decode_cell(b);
+      ws['!merges'].push({ s: inicio, e: fin });
+      if (estiloRelleno) {
+        for (let ri = inicio.r; ri <= fin.r; ri++) {
+          for (let ci = inicio.c; ci <= fin.c; ci++) {
+            const key = XLSX.utils.encode_cell({ r: ri, c: ci });
+            if (!ws[key]) ws[key] = { v: '', t: 's', s: estiloRelleno };
+          }
+        }
       }
     }
+    function col(n) { return XLSX.utils.encode_col(n); }
+    function ref(r, c) { return XLSX.utils.encode_cell({ r, c }); }
 
-    ws['!cols'] = [
-      { wch: 14 }, { wch: 16 }, { wch: 30 }, { wch: 22 },
-      { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 10 }, { wch: 30 }
+    const ws1 = {};
+    const hoy = new Date().toLocaleDateString('es-AR');
+    const totalNeto = cartas.reduce((s, c) => s + (c.pesoNeto || 0), 0);
+
+    // Fila 1: Título
+    rango(ws1, 'A1:J1', { font: fnt(true, C.azulOscuro, 13), fill: fill(C.azulClaro), alignment: aln('center'), border: brd(C.azulMedio) });
+    setCelda(ws1, 'A1', celda(
+      'CARTAS DE PORTE ELECTRÓNICAS — DATOS DE DESCARGA',
+      fnt(true, C.azulOscuro, 13), C.azulClaro, aln('center'), brd(C.azulMedio)
+    ));
+
+    // Fila 2: Subtítulo resumen
+    rango(ws1, 'A2:J2', { font: { bold: false, color: { rgb: '444444' }, sz: 9, italic: true, name: 'Arial' }, fill: fill(C.azulClaro), alignment: aln('center'), border: brd('AAAAAA') });
+    setCelda(ws1, 'A2', celda(
+      `Cartas de Porte: ${cartas.length}  |  Peso Neto Total: ${formatMiles(totalNeto)} kg  |  Generado: ${hoy}`,
+      { bold: false, color: { rgb: '444444' }, sz: 9, italic: true, name: 'Arial' },
+      C.azulClaro, aln('center'), brd('AAAAAA')
+    ));
+
+    // Fila 3: Grupos de columnas
+    const grupos = [
+      { s: 'A3', e: 'B3', label: 'IDENTIFICACIÓN' },
+      { s: 'C3', e: 'E3', label: 'PRODUCTOR / ORIGEN' },
+      { s: 'F3', e: 'G3', label: 'PESO DESCARGA' },
+      { s: 'H3', e: 'I3', label: 'GRANO / CAMPAÑA' },
+      { s: 'J3', e: 'J3', label: 'DESTINO' },
     ];
+    const sGrupo = { font: fnt(true, C.blanco, 8), fill: fill(C.azulOscuro), alignment: aln('center'), border: brdMed() };
+    grupos.forEach(g => {
+      rango(ws1, `${g.s}:${g.e}`, sGrupo);
+      setCelda(ws1, g.s, celda(g.label, fnt(true, C.blanco, 8), C.azulOscuro, aln('center'), brdMed()));
+    });
+
+    // Fila 4: Cabeceras de detalle
+    const hdrs = ['CTG', 'FECHA', 'CUIT\nPRODUCTOR', 'PRODUCTOR', 'LOCALIDAD', 'PESO BRUTO\n(KG)', 'PESO NETO\n(KG)', 'GRANO', 'CAMPAÑA', 'DESTINATARIO'];
+    hdrs.forEach((h, i) => {
+      setCelda(ws1, ref(3, i), celda(h, fnt(true, C.blanco, 7.5), C.azulMedio, aln('center'), brd('2E75B6')));
+    });
+
+    // Filas de datos
+    cartas.forEach((c, ri) => {
+      const rowColor = ri % 2 === 0 ? C.azulFila : C.blanco;
+      const vals = [
+        c.ctg || '', c.fecha || '', c.cuitProductor || '', c.nombreProductor || '', c.localidad || '',
+        c.pesoBruto ?? '', c.pesoNeto ?? '', c.grano || '', c.campania || '', c.destinatario || ''
+      ];
+      const fmts = [null, null, null, null, null, numFmtN, numFmtN, null, null, null];
+      const aligns = vals.map((_, i) => (i === 3 || i === 9) ? aln('left') : aln('center', false));
+      vals.forEach((v, i) => {
+        setCelda(ws1, ref(4 + ri, i), celda(v,
+          { bold: false, color: { rgb: '1A1A1A' }, sz: 8, name: 'Arial' },
+          rowColor, aligns[i], brd(), fmts[i]
+        ));
+      });
+    });
+
+    // Fila de totales
+    const totRow = 4 + cartas.length;
+    const totVals = [
+      'TOTALES', '', '', '', '',
+      cartas.reduce((s, c) => s + (c.pesoBruto || 0), 0),
+      cartas.reduce((s, c) => s + (c.pesoNeto || 0), 0),
+      '', '', `${cartas.length} CPE`
+    ];
+    const totFmts = [null, null, null, null, null, numFmtN, numFmtN, null, null, null];
+    totVals.forEach((v, i) => {
+      setCelda(ws1, ref(totRow, i), celda(v, fnt(true, C.blanco, 8), C.azulOscuro, aln('center', false), brdMed(), totFmts[i]));
+    });
+
+    ws1['!cols'] = [14, 11, 16, 28, 20, 13, 13, 12, 10, 28].map(w => ({ wch: w }));
+    ws1['!rows'] = [{ hpt: 20 }, { hpt: 14 }, { hpt: 16 }, { hpt: 30 }, ...cartas.map(() => ({ hpt: 14 })), { hpt: 16 }];
+    ws1['!ref'] = `A1:${col(9)}${totRow + 1}`;
+    ws1['!freeze'] = { xSplit: 0, ySplit: 4 };
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Cartas de Porte');
+    XLSX.utils.book_append_sheet(wb, ws1, 'Cartas de Porte');
     XLSX.writeFile(wb, 'Cartas_de_Porte.xlsx');
 
     log(`✓ Cartas_de_Porte.xlsx generado · ${cartas.length} filas`, 'ok');
