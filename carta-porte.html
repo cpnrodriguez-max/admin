@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Extractor de Cartas de Porte · AFIP/ARCA</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Fraunces:ital,wght@0,300;0,600;0,900;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --verde: #1a3a2a;
+    --verde-medio: #2d6a4f;
+    --verde-claro: #52b788;
+    --crema: #f5f0e8;
+    --crema-oscuro: #e8e0d0;
+    --dorado: #c9a84c;
+    --dorado-claro: #f0d080;
+    --texto: #1a1a1a;
+    --gris: #6b7280;
+    --error: #c0392b;
+    --ok: #27ae60;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--crema);
+    color: var(--texto);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  header {
+    background: var(--verde);
+    padding: 2rem 3rem;
+    display: flex;
+    align-items: flex-end;
+    gap: 2rem;
+    border-bottom: 3px solid var(--dorado);
+    position: relative;
+    overflow: hidden;
+  }
+  header::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 200px; height: 200px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(201,168,76,0.15) 0%, transparent 70%);
+  }
+  .header-icon { font-size: 3rem; line-height: 1; filter: drop-shadow(0 0 12px rgba(201,168,76,0.4)); }
+  .header-text h1 {
+    font-family: 'Fraunces', serif;
+    font-size: 2rem;
+    font-weight: 900;
+    color: var(--crema);
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .header-text h1 span { color: var(--dorado); }
+  .header-text p {
+    color: rgba(245,240,232,0.6);
+    font-size: 0.75rem;
+    margin-top: 0.3rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .badge {
+    margin-left: auto;
+    background: var(--dorado);
+    color: var(--verde);
+    font-size: 0.65rem;
+    font-weight: 500;
+    padding: 0.3rem 0.8rem;
+    border-radius: 2px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    align-self: flex-start;
+    margin-top: 0.5rem;
+  }
+
+  main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2.5rem 2rem;
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 2rem;
+    align-items: start;
+  }
+
+  .panel { background: white; border: 1.5px solid var(--crema-oscuro); border-radius: 4px; }
+  .panel-header {
+    background: var(--verde);
+    color: var(--crema);
+    padding: 0.8rem 1.2rem;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    border-radius: 3px 3px 0 0;
+  }
+  .panel-header .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dorado); }
+  .panel-body { padding: 1.5rem; }
+
+  .upload-zone {
+    border: 2px dashed var(--crema-oscuro);
+    border-radius: 4px;
+    padding: 2.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--crema);
+    position: relative;
+  }
+  .upload-zone:hover, .upload-zone.drag-over { border-color: var(--verde-claro); background: rgba(82,183,136,0.05); }
+  .upload-zone input { display: none; }
+  .upload-icon { font-size: 2.5rem; margin-bottom: 0.8rem; }
+  .upload-zone h3 { font-family: 'Fraunces', serif; font-size: 1.1rem; font-weight: 600; color: var(--verde); margin-bottom: 0.4rem; }
+  .upload-zone p { font-size: 0.72rem; color: var(--gris); line-height: 1.6; }
+  .upload-zone .hint { margin-top: 1rem; font-size: 0.65rem; color: var(--dorado); letter-spacing: 0.05em; text-transform: uppercase; }
+
+  .pdf-list { margin-top: 1.2rem; }
+  .pdf-item {
+    display: flex; align-items: center; gap: 0.8rem;
+    padding: 0.6rem 0.8rem;
+    border: 1px solid var(--crema-oscuro);
+    border-radius: 3px;
+    margin-bottom: 0.5rem;
+    font-size: 0.72rem;
+    background: var(--crema);
+    transition: all 0.2s;
+    animation: slideIn 0.2s ease;
+  }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+  .pdf-item.procesado { border-color: var(--ok); background: rgba(39,174,96,0.04); }
+  .pdf-item.error     { border-color: var(--error); background: rgba(192,57,43,0.04); }
+  .pdf-item.procesando { border-color: var(--dorado); background: rgba(201,168,76,0.05); }
+  .pdf-nombre { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pdf-estado { font-size: 0.65rem; color: var(--gris); white-space: nowrap; }
+  .pdf-remove { cursor: pointer; color: var(--gris); font-size: 1rem; line-height: 1; padding: 0 0.2rem; transition: color 0.15s; }
+  .pdf-remove:hover { color: var(--error); }
+
+  .spin {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid var(--crema-oscuro);
+    border-top-color: var(--verde-claro);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .tabla-extraidos { width: 100%; border-collapse: collapse; font-size: 0.68rem; margin-top: 1rem; }
+  .tabla-extraidos th {
+    background: var(--verde); color: var(--crema);
+    padding: 0.5rem 0.6rem; text-align: left; font-weight: 400;
+    letter-spacing: 0.05em; font-size: 0.62rem; text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .tabla-extraidos td { padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--crema-oscuro); vertical-align: middle; white-space: nowrap; }
+  .tabla-extraidos tr:nth-child(even) td { background: var(--crema); }
+  .tabla-extraidos tr:hover td { background: rgba(82,183,136,0.06); }
+  .monto { text-align: right; font-variant-numeric: tabular-nums; }
+  .tag-grano { background: var(--verde); color: var(--crema); font-size: 0.6rem; padding: 0.15rem 0.4rem; border-radius: 2px; letter-spacing: 0.05em; }
+
+  .sidebar { display: flex; flex-direction: column; gap: 1.2rem; }
+
+  .btn {
+    width: 100%; padding: 0.9rem; border: none; border-radius: 3px;
+    font-family: 'DM Mono', monospace; font-size: 0.75rem; font-weight: 500;
+    letter-spacing: 0.05em; cursor: pointer; transition: all 0.2s; text-transform: uppercase;
+  }
+  .btn-primary { background: var(--verde); color: var(--crema); border: 2px solid var(--verde); }
+  .btn-primary:hover:not(:disabled) { background: var(--verde-medio); border-color: var(--dorado); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-secondary { background: transparent; color: var(--verde); border: 1.5px solid var(--crema-oscuro); margin-top: 0.5rem; }
+  .btn-secondary:hover:not(:disabled) { border-color: var(--verde-claro); background: rgba(82,183,136,0.05); }
+  .btn-secondary:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .resumen-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+  .kpi { background: var(--crema); border: 1px solid var(--crema-oscuro); border-radius: 3px; padding: 0.8rem; text-align: center; }
+  .kpi .valor { font-family: 'Fraunces', serif; font-size: 1.3rem; font-weight: 600; color: var(--verde); line-height: 1; }
+  .kpi .label { font-size: 0.6rem; color: var(--gris); margin-top: 0.3rem; text-transform: uppercase; letter-spacing: 0.08em; }
+  .kpi.total { grid-column: 1 / -1; }
+  .kpi.total .valor { font-size: 1.6rem; color: var(--dorado); }
+
+  .log {
+    background: var(--verde); color: var(--verde-claro); border-radius: 3px;
+    padding: 0.8rem; font-size: 0.65rem; line-height: 1.8;
+    max-height: 140px; overflow-y: auto; letter-spacing: 0.02em;
+  }
+  .log .log-ok  { color: var(--verde-claro); }
+  .log .log-err { color: #e74c3c; }
+  .log .log-inf { color: var(--dorado-claro); }
+
+  .progress-bar { height: 3px; background: var(--crema-oscuro); border-radius: 2px; overflow: hidden; margin: 0.8rem 0; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--verde-claro), var(--dorado)); border-radius: 2px; transition: width 0.3s ease; width: 0%; }
+
+  .alerta { padding: 0.7rem 0.9rem; border-radius: 3px; font-size: 0.7rem; line-height: 1.5; margin-top: 0.8rem; display: none; }
+  .alerta.show { display: block; }
+  .alerta.ok  { background: rgba(39,174,96,0.1);  border-left: 3px solid var(--ok);    color: #1a5c2e; }
+  .alerta.err { background: rgba(192,57,43,0.1);  border-left: 3px solid var(--error); color: var(--error); }
+  .alerta.inf { background: rgba(201,168,76,0.1); border-left: 3px solid var(--dorado); color: #7a5c00; }
+
+  .ayuda-f12 { font-size: 0.7rem; line-height: 1.7; color: var(--texto); }
+  .ayuda-f12 h4 { font-family: 'Fraunces', serif; font-size: 0.85rem; color: var(--verde); margin: 1rem 0 0.4rem; }
+  .ayuda-f12 h4:first-child { margin-top: 0; }
+  .ayuda-f12 ol, .ayuda-f12 ul { padding-left: 1.2rem; margin-top: 0.3rem; }
+  .ayuda-f12 code, .ayuda-f12 pre {
+    font-family: 'DM Mono', monospace; background: var(--crema); border: 1px solid var(--crema-oscuro);
+    border-radius: 3px; font-size: 0.65rem;
+  }
+  .ayuda-f12 code { padding: 0.1rem 0.3rem; }
+  .ayuda-f12 pre {
+    padding: 0.8rem; overflow-x: auto; white-space: pre; margin: 0.5rem 0; line-height: 1.5; position: relative;
+  }
+  .btn-copiar {
+    position: absolute; top: 0.5rem; right: 0.5rem;
+    font-size: 0.6rem; padding: 0.3rem 0.6rem; border-radius: 3px;
+    background: var(--verde); color: var(--crema); border: none; cursor: pointer;
+    letter-spacing: 0.05em; text-transform: uppercase;
+  }
+  .btn-copiar:hover { background: var(--verde-medio); }
+  .caja-pre { position: relative; }
+
+  footer { text-align: center; padding: 1.5rem; font-size: 0.62rem; color: var(--gris); letter-spacing: 0.05em; border-top: 1px solid var(--crema-oscuro); margin-top: 2rem; }
+
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; padding: 1rem; }
+    header { padding: 1.2rem; }
+    .header-text h1 { font-size: 1.4rem; }
+    .tabla-extraidos { display: block; overflow-x: auto; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-icon">🚚</div>
+  <div class="header-text">
+    <h1>Cartas de Porte <span>Extractor</span></h1>
+    <p>Datos de descarga · CTG / CPE electrónicas AFIP-ARCA</p>
+  </div>
+  <div class="badge">v1.0 · 2026</div>
+</header>
+
+<main>
+  <!-- ══ COLUMNA IZQUIERDA ══ -->
+  <div style="display:flex;flex-direction:column;gap:1.5rem;">
+
+    <!-- Ayuda para bajar los PDF de AFIP -->
+    <div class="panel">
+      <div class="panel-header"><div class="dot"></div> Paso 0 · Conseguir los PDF desde AFIP (F12)</div>
+      <div class="panel-body ayuda-f12">
+        <p>No tengo forma de entrar a tu cuenta de AFIP con tu Clave Fiscal, así que este paso lo hacés vos, en tu propio navegador ya logueado. Dos formas:</p>
+
+        <h4>Opción A — Manual (más segura, recomendada)</h4>
+        <ol>
+          <li>Entrá a la consulta de Cartas de Porte Electrónicas en AFIP/ARCA con tu Clave Fiscal.</li>
+          <li>Descargá el PDF de cada CTG que te interese (botón "Ver CP" / "Imprimir").</li>
+          <li>Soltá todos los PDF en la zona de carga de abajo (Paso 1).</li>
+        </ol>
+
+        <h4>Opción B — Script de consola (F12), en lote</h4>
+        <p>Con la lista de Cartas de Porte ya abierta en AFIP, presioná <code>F12</code> → pestaña <code>Console</code>, pegá este script y presioná Enter. Busca los botones/links de "ver PDF" de cada fila y los va abriendo/descargando de a uno, respetando tu sesión ya iniciada:</p>
+        <div class="caja-pre">
+          <button class="btn-copiar" onclick="copiarScript()">Copiar</button>
+          <pre id="scriptF12">(async function () {
+  const candidatos = [...document.querySelectorAll('a, button, [onclick], img')].filter(el => {
+    const txt  = (el.getAttribute('title') || el.getAttribute('alt') || el.textContent || '').toLowerCase();
+    const href = (el.getAttribute('href') || el.getAttribute('onclick') || '').toLowerCase();
+    return txt.includes('pdf') || txt.includes('imprimir') || txt.includes('ver cp')
+        || href.includes('pdf') || href.includes('imprimir');
+  });
+  console.log('Encontrados', candidatos.length, 'posibles botones/links de PDF');
+  if (!candidatos.length) {
+    console.log('No encontré nada. Click derecho sobre el ícono "ver PDF" de una fila > Inspeccionar, y ajustá el filtro de arriba con lo que veas ahí.');
+    return;
+  }
+  for (let i = 0; i < candidatos.length; i++) {
+    candidatos[i].click();
+    console.log(`(${i+1}/${candidatos.length}) click disparado`);
+    await new Promise(r => setTimeout(r, 1500));
+  }
+  console.log('Listo. Si se abrieron pestañas nuevas en vez de descargar, guardalas con Ctrl+S.');
+})();</pre>
+        </div>
+        <p><strong>Notas:</strong> es un script genérico (no conozco la estructura exacta de esa pantalla de AFIP), puede necesitar que ajustes las palabras del filtro según lo que encuentres al inspeccionar un botón. Si el navegador bloquea las pestañas emergentes, permitilas para el sitio de AFIP. Nunca compartas tu Clave Fiscal conmigo ni con ningún script.</p>
+      </div>
+    </div>
+
+    <!-- Carga de PDFs -->
+    <div class="panel">
+      <div class="panel-header"><div class="dot"></div> Paso 1 · Cargar Cartas de Porte (PDF)</div>
+      <div class="panel-body">
+        <div class="upload-zone" id="uploadZone">
+          <input type="file" id="fileInput" accept=".pdf" multiple>
+          <div class="upload-icon">📄</div>
+          <h3>Arrastrá los PDFs aquí</h3>
+          <p>O hacé clic para seleccionar múltiples archivos<br>Cartas de Porte Electrónicas emitidas por AFIP/ARCA</p>
+          <div class="hint">↑ Formato PDF · Múltiples archivos permitidos</div>
+        </div>
+        <div class="pdf-list" id="pdfList"></div>
+        <div class="progress-bar" id="progressBar" style="display:none;">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="alerta" id="alertaCarga"></div>
+      </div>
+    </div>
+
+    <!-- Tabla de datos extraídos -->
+    <div class="panel" id="panelTabla" style="display:none;">
+      <div class="panel-header"><div class="dot"></div> Paso 2 · Verificar Datos Extraídos</div>
+      <div class="panel-body" style="overflow-x:auto;">
+        <table class="tabla-extraidos" id="tablaExtraidos">
+          <thead>
+            <tr>
+              <th>CTG</th>
+              <th>CUIT Productor</th>
+              <th>Productor</th>
+              <th>Localidad</th>
+              <th>Peso Bruto (kg)</th>
+              <th>Peso Neto (kg)</th>
+              <th>Grano</th>
+              <th>Campaña</th>
+              <th>Destinatario</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tablaBody"></tbody>
+        </table>
+        <div class="alerta inf show" style="margin-top:0.8rem;">
+          ⚠ Los pesos se toman de la sección G · DESCARGA de cada Carta de Porte. Verificá los datos antes de generar el Excel; si algo está mal, quitá el PDF y volvé a cargarlo.
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══ COLUMNA DERECHA ══ -->
+  <div class="sidebar">
+
+    <!-- Resumen -->
+    <div class="panel" id="panelResumen" style="display:none;">
+      <div class="panel-header"><div class="dot"></div> Resumen</div>
+      <div class="panel-body">
+        <div class="resumen-grid">
+          <div class="kpi"><div class="valor" id="kpiCantidad">0</div><div class="label">Cartas de Porte</div></div>
+          <div class="kpi"><div class="valor" id="kpiProductores">0</div><div class="label">Productores</div></div>
+          <div class="kpi total"><div class="valor" id="kpiKgNeto">0</div><div class="label">Kg Netos Totales</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Generar -->
+    <div class="panel">
+      <div class="panel-header"><div class="dot"></div> Paso 3 · Generar Planilla</div>
+      <div class="panel-body">
+        <div class="log" id="logPanel">
+          <span class="log-inf">▸ Esperando Cartas de Porte...</span>
+        </div>
+        <button class="btn btn-primary" id="btnGenerar" disabled onclick="generarExcel()">
+          📊 Generar Excel
+        </button>
+        <button class="btn btn-secondary" id="btnLimpiar" onclick="limpiarTodo()">
+          ✕ Limpiar todo
+        </button>
+        <div class="alerta" id="alertaOk"></div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<footer>Extractor de Cartas de Porte Electrónicas · AFIP/ARCA · Datos de descarga (sección G)</footer>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+let cartas = [];
+
+// ═══════════════════════════════════════════════════
+// COPIAR SCRIPT F12
+// ═══════════════════════════════════════════════════
+function copiarScript() {
+  const texto = document.getElementById('scriptF12').textContent;
+  navigator.clipboard.writeText(texto).then(() => {
+    const btn = event.target;
+    const original = btn.textContent;
+    btn.textContent = '✓ Copiado';
+    setTimeout(() => { btn.textContent = original; }, 1500);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// DRAG & DROP
+// ═══════════════════════════════════════════════════
+const zone = document.getElementById('uploadZone');
+const input = document.getElementById('fileInput');
+
+zone.addEventListener('click', () => input.click());
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+zone.addEventListener('drop', e => {
+  e.preventDefault(); zone.classList.remove('drag-over');
+  procesarArchivos([...e.dataTransfer.files]);
+});
+input.addEventListener('change', () => procesarArchivos([...input.files]));
+
+// ═══════════════════════════════════════════════════
+// PROCESAMIENTO DE PDFs
+// ═══════════════════════════════════════════════════
+async function procesarArchivos(files) {
+  const pdfs = files.filter(f => f.name.toLowerCase().endsWith('.pdf'));
+  if (!pdfs.length) { mostrarAlerta('alertaCarga', 'Solo se aceptan archivos PDF.', 'err'); return; }
+
+  const barra = document.getElementById('progressBar');
+  const fill  = document.getElementById('progressFill');
+  barra.style.display = 'block';
+
+  for (let i = 0; i < pdfs.length; i++) {
+    const f = pdfs[i];
+    if (cartas.find(c => c._archivo === f.name)) {
+      log(`↷ ${f.name} ya está cargado, omitido`, 'inf'); continue;
+    }
+
+    const itemId = 'pdf_' + Date.now() + '_' + i;
+    agregarItemLista(f.name, itemId, 'procesando');
+    fill.style.width = (i / pdfs.length * 100) + '%';
+
+    try {
+      const cpe = await extraerDatosCPE(f);
+      cpe._archivo = f.name;
+      cpe._itemId  = itemId;
+      cartas.push(cpe);
+      actualizarItemLista(itemId, 'procesado', '✓ CTG ' + (cpe.ctg || '?'));
+      log(`✓ ${f.name} → CTG ${cpe.ctg || '?'} · ${cpe.nombreProductor || cpe.cuitProductor}`, 'ok');
+    } catch (e) {
+      actualizarItemLista(itemId, 'error', '✗ ' + e.message);
+      log(`✗ ${f.name}: ${e.message}`, 'err');
+    }
+  }
+
+  fill.style.width = '100%';
+  setTimeout(() => { barra.style.display = 'none'; fill.style.width = '0%'; }, 800);
+
+  actualizarUI();
+  input.value = '';
+}
+
+// ═══════════════════════════════════════════════════
+// RECONSTRUCCIÓN DE TEXTO POR FILAS (posición x/y)
+// ═══════════════════════════════════════════════════
+async function extraerLineas(file) {
+  const buffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+  const lineas = [];
+  const TOL = 2.5;
+
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    const items = content.items
+      .map(it => ({ str: it.str, x: it.transform[4], y: it.transform[5] }))
+      .filter(it => it.str.trim() !== '');
+
+    const filas = [];
+    items.forEach(it => {
+      let fila = filas.find(f => Math.abs(f.y - it.y) <= TOL);
+      if (!fila) { fila = { y: it.y, items: [] }; filas.push(fila); }
+      fila.items.push(it);
+    });
+    filas.sort((a, b) => b.y - a.y);
+    filas.forEach(f => {
+      f.items.sort((a, b) => a.x - b.x);
+      lineas.push(f.items.map(i => i.str).join(' ').replace(/\s+/g, ' ').trim());
+    });
+  }
+  return lineas;
+}
+
+// ═══════════════════════════════════════════════════
+// EXTRACCIÓN DE DATOS DE LA CARTA DE PORTE
+// ═══════════════════════════════════════════════════
+async function extraerDatosCPE(file) {
+  const lineas = await extraerLineas(file);
+  const cpe = {};
+
+  function valorDeLinea(regexEtiqueta) {
+    for (const l of lineas) {
+      const m = l.match(regexEtiqueta);
+      if (m && m[1] && m[1].trim()) return m[1].trim();
+    }
+    return '';
+  }
+  function partirCuitNombre(valor) {
+    if (!valor) return { cuit: '', nombre: '' };
+    const m = valor.match(/(\d{2}-?\d{8}-?\d)\s*-\s*(.+)/);
+    if (!m) return { cuit: '', nombre: valor.trim() };
+    return { cuit: m[1].replace(/-/g, ''), nombre: m[2].trim() };
+  }
+  function parsePeso(str) {
+    if (!str) return null;
+    const n = parseFloat(String(str).replace(/\./g, '').replace(',', '.'));
+    return isNaN(n) ? null : Math.round(n);
+  }
+
+  // CTG
+  const ctg = valorDeLinea(/CTG:\s*(\d+)/);
+  cpe.ctg = ctg || '';
+
+  // Productor: preferir "Remitente Comercial Productor"; si está vacío, usar "Titular Carta de Porte"
+  let productorRaw = valorDeLinea(/Remitente Comercial Productor:\s*(\d{2}-?\d{8}-?\d[^\n]*)/);
+  if (!productorRaw) productorRaw = valorDeLinea(/Titular Carta de Porte:\s*(\d{2}-?\d{8}-?\d[^\n]*)/);
+  const productor = partirCuitNombre(productorRaw);
+  cpe.cuitProductor = productor.cuit;
+  cpe.nombreProductor = productor.nombre;
+
+  // Destinatario
+  const destinatarioRaw = valorDeLinea(/^Destinatario:\s*(\d{2}-?\d{8}-?\d[^\n]*)/);
+  const destinatario = partirCuitNombre(destinatarioRaw);
+  cpe.cuitDestinatario = destinatario.cuit;
+  cpe.destinatario = destinatario.nombre;
+
+  // Localidad de PROCEDENCIA (sección C, campo del productor)
+  const idxC = lineas.findIndex(l => /C\s*-\s*PROCEDENCIA/i.test(l));
+  const idxD = lineas.findIndex(l => /D\s*-\s*DESTINO/i.test(l));
+  let localidad = '';
+  if (idxC !== -1) {
+    const fin = idxD !== -1 ? idxD : lineas.length;
+    for (let i = idxC; i < fin; i++) {
+      const m = lineas[i].match(/Localidad:\s*([^\n]+?)(?:\s+Provincia|$)/i);
+      if (m) { localidad = m[1].trim(); break; }
+    }
+  }
+  cpe.localidad = localidad;
+
+  // Grano y Campaña (sección B)
+  const grano = valorDeLinea(/Grano\s*\/\s*([A-Za-zÁÉÍÓÚÑáéíóúñ]+)\s+Tipo:/i);
+  cpe.grano = grano || '';
+  const campania = valorDeLinea(/Campa[ñn]a:\s*(\d{2,4})/i);
+  cpe.campania = campania || '';
+
+  // Pesos de DESCARGA (sección G) — no los de la declaración de calidad (sección B)
+  const idxG = lineas.findIndex(l => /G\s*-\s*DESCARGA/i.test(l));
+  let pesoBruto = '', pesoNeto = '';
+  if (idxG !== -1) {
+    for (let i = idxG; i < lineas.length; i++) {
+      const mb = lineas[i].match(/Peso Bruto\s*\(kg\):?\s*([\d.,]+)/i);
+      if (mb) pesoBruto = mb[1];
+      const mn = lineas[i].match(/Peso Neto\s*\(kg\):?\s*([\d.,]+)/i);
+      if (mn) pesoNeto = mn[1];
+    }
+  }
+  cpe.pesoBruto = parsePeso(pesoBruto);
+  cpe.pesoNeto = parsePeso(pesoNeto);
+
+  if (!cpe.cuitProductor) throw new Error('No se encontró el CUIT del productor');
+  if (cpe.pesoBruto === null || cpe.pesoNeto === null) {
+    throw new Error('No se encontraron los pesos de descarga (sección G)');
+  }
+
+  return cpe;
+}
+
+// ═══════════════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════════════
+function agregarItemLista(nombre, id, estado) {
+  const lista = document.getElementById('pdfList');
+  const div = document.createElement('div');
+  div.className = 'pdf-item ' + estado;
+  div.id = id;
+  div.innerHTML = `
+    <span>${estado === 'procesando' ? '<div class="spin"></div>' : '📄'}</span>
+    <span class="pdf-nombre">${nombre}</span>
+    <span class="pdf-estado" id="${id}_estado">Procesando...</span>
+    <span class="pdf-remove" onclick="quitarPDF('${id}')">✕</span>`;
+  lista.appendChild(div);
+}
+
+function actualizarItemLista(id, estado, msg) {
+  const item = document.getElementById(id);
+  if (!item) return;
+  item.className = 'pdf-item ' + estado;
+  const icono = item.querySelector('span:first-child');
+  const estadoEl = item.querySelector('.pdf-estado');
+  icono.innerHTML = estado === 'procesado' ? '✅' : estado === 'error' ? '❌' : '📄';
+  estadoEl.textContent = msg;
+}
+
+function quitarPDF(id) {
+  const idx = cartas.findIndex(c => c._itemId === id);
+  if (idx !== -1) cartas.splice(idx, 1);
+  const el = document.getElementById(id);
+  if (el) el.remove();
+  actualizarUI();
+}
+
+function log(msg, tipo = 'inf') {
+  const p = document.getElementById('logPanel');
+  const span = document.createElement('span');
+  span.className = 'log-' + tipo;
+  span.textContent = msg;
+  p.appendChild(document.createElement('br'));
+  p.appendChild(span);
+  p.scrollTop = p.scrollHeight;
+}
+
+function mostrarAlerta(id, msg, tipo) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = `alerta ${tipo} show`;
+}
+
+function formatMiles(n) {
+  if (n === null || n === undefined) return '—';
+  return Math.round(n).toLocaleString('es-AR');
+}
+
+// ═══════════════════════════════════════════════════
+// ACTUALIZAR INTERFAZ
+// ═══════════════════════════════════════════════════
+function actualizarUI() {
+  const hayDatos = cartas.length > 0;
+
+  document.getElementById('panelTabla').style.display = hayDatos ? 'block' : 'none';
+  document.getElementById('panelResumen').style.display = hayDatos ? 'block' : 'none';
+  document.getElementById('btnGenerar').disabled = !hayDatos;
+
+  const tbody = document.getElementById('tablaBody');
+  tbody.innerHTML = '';
+  let totalNeto = 0;
+  const productores = new Set();
+
+  cartas.forEach(c => {
+    totalNeto += c.pesoNeto || 0;
+    if (c.cuitProductor) productores.add(c.cuitProductor);
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="font-size:0.62rem">${c.ctg || '—'}</td>
+      <td>${c.cuitProductor || '—'}</td>
+      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;">${c.nombreProductor || '—'}</td>
+      <td>${c.localidad || '—'}</td>
+      <td class="monto">${formatMiles(c.pesoBruto)}</td>
+      <td class="monto">${formatMiles(c.pesoNeto)}</td>
+      <td><span class="tag-grano">${c.grano || '—'}</span></td>
+      <td>${c.campania || '—'}</td>
+      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;">${c.destinatario || '—'}</td>
+      <td class="pdf-remove" onclick="quitarPDF('${c._itemId}')">✕</td>`;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('kpiCantidad').textContent = cartas.length;
+  document.getElementById('kpiProductores').textContent = productores.size;
+  document.getElementById('kpiKgNeto').textContent = formatMiles(totalNeto);
+}
+
+// ═══════════════════════════════════════════════════
+// GENERAR EXCEL
+// ═══════════════════════════════════════════════════
+function generarExcel() {
+  if (!cartas.length) return;
+  log('▸ Generando Excel...', 'inf');
+
+  try {
+    const encabezados = ['CTG', 'CUIT Productor', 'Productor', 'Localidad', 'Peso Bruto (kg)', 'Peso Neto (kg)', 'Grano', 'Campaña', 'Destinatario'];
+    const filas = cartas.map(c => ([
+      c.ctg || '',
+      c.cuitProductor || '',
+      c.nombreProductor || '',
+      c.localidad || '',
+      c.pesoBruto ?? '',
+      c.pesoNeto ?? '',
+      c.grano || '',
+      c.campania || '',
+      c.destinatario || ''
+    ]));
+
+    const datos = [encabezados, ...filas];
+    const ws = XLSX.utils.aoa_to_sheet(datos);
+
+    // Encabezado con estilo
+    const rango = XLSX.utils.decode_range(ws['!ref']);
+    for (let col = rango.s.c; col <= rango.e.c; col++) {
+      const addr = XLSX.utils.encode_cell({ r: 0, c: col });
+      if (ws[addr]) {
+        ws[addr].s = {
+          font: { bold: true, color: { rgb: 'F5F0E8' } },
+          fill: { fgColor: { rgb: '1A3A2A' } },
+          alignment: { horizontal: 'center' }
+        };
+      }
+    }
+
+    ws['!cols'] = [
+      { wch: 14 }, { wch: 16 }, { wch: 30 }, { wch: 22 },
+      { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 10 }, { wch: 30 }
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Cartas de Porte');
+    XLSX.writeFile(wb, 'Cartas_de_Porte.xlsx');
+
+    log(`✓ Cartas_de_Porte.xlsx generado · ${cartas.length} filas`, 'ok');
+    mostrarAlerta('alertaOk', `✓ Excel generado y descargado. ${cartas.length} Cartas de Porte procesadas.`, 'ok');
+  } catch (e) {
+    log('✗ Error: ' + e.message, 'err');
+    mostrarAlerta('alertaOk', '✗ Error al generar: ' + e.message, 'err');
+  }
+}
+
+function limpiarTodo() {
+  cartas = [];
+  document.getElementById('pdfList').innerHTML = '';
+  document.getElementById('logPanel').innerHTML = '<span class="log-inf">▸ Esperando Cartas de Porte...</span>';
+  document.getElementById('alertaOk').className = 'alerta';
+  document.getElementById('alertaCarga').className = 'alerta';
+  actualizarUI();
+}
+</script>
+
+</body>
+</html>
