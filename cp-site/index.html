@@ -35,10 +35,10 @@
 
   header {
     background: var(--verde);
-    padding: 2rem 3rem;
+    padding: 0.9rem 1.6rem;
     display: flex;
-    align-items: flex-end;
-    gap: 2rem;
+    align-items: center;
+    gap: 1rem;
     border-bottom: 3px solid var(--dorado);
     position: relative;
     overflow: hidden;
@@ -51,10 +51,10 @@
     border-radius: 50%;
     background: radial-gradient(circle, rgba(201,168,76,0.15) 0%, transparent 70%);
   }
-  .header-icon { font-size: 3rem; line-height: 1; filter: drop-shadow(0 0 12px rgba(201,168,76,0.4)); }
+  .header-icon { font-size: 1.8rem; line-height: 1; filter: drop-shadow(0 0 12px rgba(201,168,76,0.4)); }
   .header-text h1 {
     font-family: 'Fraunces', serif;
-    font-size: 2rem;
+    font-size: 1.3rem;
     font-weight: 900;
     color: var(--crema);
     letter-spacing: -0.02em;
@@ -63,32 +63,31 @@
   .header-text h1 span { color: var(--dorado); }
   .header-text p {
     color: rgba(245,240,232,0.6);
-    font-size: 0.75rem;
-    margin-top: 0.3rem;
-    letter-spacing: 0.08em;
+    font-size: 0.65rem;
+    margin-top: 0.15rem;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
   }
   .badge {
     margin-left: auto;
     background: var(--dorado);
     color: var(--verde);
-    font-size: 0.65rem;
+    font-size: 0.6rem;
     font-weight: 500;
-    padding: 0.3rem 0.8rem;
+    padding: 0.25rem 0.7rem;
     border-radius: 2px;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    align-self: flex-start;
-    margin-top: 0.5rem;
+    align-self: center;
   }
 
   main {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 2.5rem 2rem;
+    padding: 1rem 1.2rem;
     display: grid;
     grid-template-columns: 1fr 340px;
-    gap: 2rem;
+    gap: 1.1rem;
     align-items: start;
   }
 
@@ -96,8 +95,8 @@
   .panel-header {
     background: var(--verde);
     color: var(--crema);
-    padding: 0.8rem 1.2rem;
-    font-size: 0.7rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.68rem;
     letter-spacing: 0.15em;
     text-transform: uppercase;
     display: flex;
@@ -106,12 +105,12 @@
     border-radius: 3px 3px 0 0;
   }
   .panel-header .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dorado); }
-  .panel-body { padding: 1.5rem; }
+  .panel-body { padding: 0.9rem 1rem; }
 
   .upload-zone {
     border: 2px dashed var(--crema-oscuro);
     border-radius: 4px;
-    padding: 2.5rem;
+    padding: 1.1rem;
     text-align: center;
     cursor: pointer;
     transition: all 0.2s;
@@ -120,12 +119,12 @@
   }
   .upload-zone:hover, .upload-zone.drag-over { border-color: var(--verde-claro); background: rgba(82,183,136,0.05); }
   .upload-zone input { display: none; }
-  .upload-icon { font-size: 2.5rem; margin-bottom: 0.8rem; }
-  .upload-zone h3 { font-family: 'Fraunces', serif; font-size: 1.1rem; font-weight: 600; color: var(--verde); margin-bottom: 0.4rem; }
-  .upload-zone p { font-size: 0.72rem; color: var(--gris); line-height: 1.6; }
-  .upload-zone .hint { margin-top: 1rem; font-size: 0.65rem; color: var(--dorado); letter-spacing: 0.05em; text-transform: uppercase; }
+  .upload-icon { font-size: 1.6rem; margin-bottom: 0.3rem; }
+  .upload-zone h3 { font-family: 'Fraunces', serif; font-size: 1rem; font-weight: 600; color: var(--verde); margin-bottom: 0.3rem; }
+  .upload-zone p { font-size: 0.7rem; color: var(--gris); line-height: 1.4; }
+  .upload-zone .hint { margin-top: 0.6rem; font-size: 0.62rem; color: var(--dorado); letter-spacing: 0.05em; text-transform: uppercase; }
 
-  .pdf-list { margin-top: 1.2rem; }
+  .pdf-list { margin-top: 0.7rem; max-height: 160px; overflow-y: auto; }
   .pdf-item {
     display: flex; align-items: center; gap: 0.8rem;
     padding: 0.6rem 0.8rem;
@@ -169,10 +168,10 @@
   .monto { text-align: right; font-variant-numeric: tabular-nums; }
   .tag-grano { background: var(--verde); color: var(--crema); font-size: 0.6rem; padding: 0.15rem 0.4rem; border-radius: 2px; letter-spacing: 0.05em; }
 
-  .sidebar { display: flex; flex-direction: column; gap: 1.2rem; }
+  .sidebar { display: flex; flex-direction: column; gap: 0.8rem; }
 
   .btn {
-    width: 100%; padding: 0.9rem; border: none; border-radius: 3px;
+    width: 100%; padding: 0.65rem; border: none; border-radius: 3px;
     font-family: 'DM Mono', monospace; font-size: 0.75rem; font-weight: 500;
     letter-spacing: 0.05em; cursor: pointer; transition: all 0.2s; text-transform: uppercase;
   }
@@ -184,7 +183,7 @@
   .btn-secondary:disabled { opacity: 0.3; cursor: not-allowed; }
 
   .resumen-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
-  .kpi { background: var(--crema); border: 1px solid var(--crema-oscuro); border-radius: 3px; padding: 0.8rem; text-align: center; }
+  .kpi { background: var(--crema); border: 1px solid var(--crema-oscuro); border-radius: 3px; padding: 0.55rem; text-align: center; }
   .kpi .valor { font-family: 'Fraunces', serif; font-size: 1.3rem; font-weight: 600; color: var(--verde); line-height: 1; }
   .kpi .label { font-size: 0.6rem; color: var(--gris); margin-top: 0.3rem; text-transform: uppercase; letter-spacing: 0.08em; }
   .kpi.total { grid-column: 1 / -1; }
@@ -192,17 +191,17 @@
 
   .log {
     background: var(--verde); color: var(--verde-claro); border-radius: 3px;
-    padding: 0.8rem; font-size: 0.65rem; line-height: 1.8;
-    max-height: 140px; overflow-y: auto; letter-spacing: 0.02em;
+    padding: 0.6rem; font-size: 0.65rem; line-height: 1.6;
+    max-height: 90px; overflow-y: auto; letter-spacing: 0.02em;
   }
   .log .log-ok  { color: var(--verde-claro); }
   .log .log-err { color: #e74c3c; }
   .log .log-inf { color: var(--dorado-claro); }
 
-  .progress-bar { height: 3px; background: var(--crema-oscuro); border-radius: 2px; overflow: hidden; margin: 0.8rem 0; }
+  .progress-bar { height: 3px; background: var(--crema-oscuro); border-radius: 2px; overflow: hidden; margin: 0.5rem 0; }
   .progress-fill { height: 100%; background: linear-gradient(90deg, var(--verde-claro), var(--dorado)); border-radius: 2px; transition: width 0.3s ease; width: 0%; }
 
-  .alerta { padding: 0.7rem 0.9rem; border-radius: 3px; font-size: 0.7rem; line-height: 1.5; margin-top: 0.8rem; display: none; }
+  .alerta { padding: 0.55rem 0.8rem; border-radius: 3px; font-size: 0.68rem; line-height: 1.4; margin-top: 0.5rem; display: none; }
   .alerta.show { display: block; }
   .alerta.ok  { background: rgba(39,174,96,0.1);  border-left: 3px solid var(--ok);    color: #1a5c2e; }
   .alerta.err { background: rgba(192,57,43,0.1);  border-left: 3px solid var(--error); color: var(--error); }
@@ -215,12 +214,11 @@
   }
   .ayuda-f12 .btn { margin-top: 1rem; }
 
-  footer { text-align: center; padding: 1.5rem; font-size: 0.62rem; color: var(--gris); letter-spacing: 0.05em; border-top: 1px solid var(--crema-oscuro); margin-top: 2rem; }
+  footer { text-align: center; padding: 0.6rem; font-size: 0.6rem; color: var(--gris); letter-spacing: 0.05em; border-top: 1px solid var(--crema-oscuro); margin-top: 0.6rem; }
 
   @media (max-width: 900px) {
-    main { grid-template-columns: 1fr; padding: 1rem; }
-    header { padding: 1.2rem; }
-    .header-text h1 { font-size: 1.4rem; }
+    main { grid-template-columns: 1fr; padding: 0.8rem; }
+    .header-text h1 { font-size: 1.1rem; }
     .tabla-extraidos { display: block; overflow-x: auto; }
   }
 
@@ -282,7 +280,7 @@
 
 <main>
   <!-- ══ COLUMNA IZQUIERDA ══ -->
-  <div style="display:flex;flex-direction:column;gap:1.5rem;">
+  <div style="display:flex;flex-direction:column;gap:0.9rem;">
 
     <!-- Ayuda para bajar los PDF de AFIP -->
     <div class="panel">
@@ -315,7 +313,7 @@
     <!-- Tabla de datos extraídos -->
     <div class="panel" id="panelTabla" style="display:none;">
       <div class="panel-header"><div class="dot"></div> Paso 2 · Verificar Datos Extraídos</div>
-      <div class="panel-body" style="overflow-x:auto;">
+      <div class="panel-body" style="overflow-x:auto; max-height: 320px; overflow-y: auto;">
         <table class="tabla-extraidos" id="tablaExtraidos">
           <thead>
             <tr>
