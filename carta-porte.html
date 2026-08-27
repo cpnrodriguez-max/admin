@@ -266,26 +266,44 @@
           <li>Soltá todos los PDF en la zona de carga de abajo (Paso 1).</li>
         </ol>
 
-        <h4>Opción B — Script de consola (F12), en lote</h4>
-        <p>Verificado en <code>cpea-app.afip.gob.ar/cpe-web</code> → pantalla <strong>Consulta de Solicitadas</strong> (<code>#/consultar-solicitadas</code>). Con esa pantalla abierta y la página de 10 resultados a la vista, presioná <code>F12</code> → pestaña <code>Console</code>, pegá este script y Enter. Clickea los 10 botones "Imprimir" de la página actual (se descargan directo, sin diálogo extra), respetando tu sesión ya iniciada:</p>
+        <h4>Opción B — Script de consola (F12), en lote y con avance de página automático</h4>
+        <p>Verificado en <code>cpea-app.afip.gob.ar/cpe-web</code> → pantalla <strong>Consulta de Solicitadas</strong> (<code>#/consultar-solicitadas</code>), paginado tipo Bootstrap (‹ 1 2 3 … ›). Con esa pantalla abierta en la página 1, presioná <code>F12</code> → pestaña <code>Console</code>, pegá este script y Enter. Descarga los 10 PDF de la página actual, pasa solo a la página siguiente y repite hasta que no haya más:</p>
         <div class="caja-pre">
           <button class="btn-copiar" onclick="copiarScript()">Copiar</button>
           <pre id="scriptF12">(async function () {
-  const botones = [...document.querySelectorAll('button.fa-print, button[title="Imprimir"]')];
-  console.log('Botones "Imprimir" encontrados:', botones.length);
-  if (!botones.length) {
-    console.log('No encontré nada. Click derecho sobre el botón "Imprimir" de una fila > Inspeccionar, y ajustá el selector de arriba con lo que veas ahí.');
-    return;
+  const ESPERA_ENTRE_DESCARGAS = 2000;
+  const ESPERA_CAMBIO_PAGINA = 2500;
+  const MAX_PAGINAS = 30; // tope de seguridad
+
+  function botonSiguiente() {
+    const links = [...document.querySelectorAll('.page-link')];
+    const sig = links.find(el => el.textContent.trim() === '›');
+    if (!sig) return null;
+    const li = sig.closest('.page-item');
+    if (li && li.classList.contains('disabled')) return null;
+    return sig;
   }
-  for (let i = 0; i < botones.length; i++) {
-    botones[i].click();
-    console.log(`(${i + 1}/${botones.length}) click disparado`);
-    await new Promise(r => setTimeout(r, 2000));
+
+  let pagina = 1;
+  while (pagina <= MAX_PAGINAS) {
+    const botones = [...document.querySelectorAll('button.fa-print, button[title="Imprimir"]')];
+    console.log(`--- Página ${pagina}: ${botones.length} Cartas de Porte ---`);
+    for (let i = 0; i < botones.length; i++) {
+      botones[i].click();
+      console.log(`  (${i + 1}/${botones.length}) descarga disparada`);
+      await new Promise(r => setTimeout(r, ESPERA_ENTRE_DESCARGAS));
+    }
+
+    const sig = botonSiguiente();
+    if (!sig) { console.log('No hay más páginas. Listo.'); break; }
+    sig.click();
+    pagina++;
+    console.log(`Avanzando a la página ${pagina}...`);
+    await new Promise(r => setTimeout(r, ESPERA_CAMBIO_PAGINA));
   }
-  console.log('Listo esta página. Andá a la página siguiente (10 resultados más) y volvé a correr este mismo script.');
 })();</pre>
         </div>
-        <p><strong>Notas:</strong> el script solo procesa la página de 10 resultados visible; repetilo en cada página hasta terminar. Si AFIP cambia el diseño de esa pantalla el selector puede dejar de funcionar — en ese caso inspeccioná de nuevo el botón "Imprimir" y avisame para actualizarlo. Nunca compartas tu Clave Fiscal conmigo ni con ningún script.</p>
+        <p><strong>Notas:</strong> probalo primero con <code>MAX_PAGINAS = 2</code> para confirmar que avanza bien antes de dejarlo correr las ~20 páginas completas. Chrome puede bloquear descargas automáticas después de varias seguidas: si dejan de bajar, fijate si apareció un aviso arriba del navegador y tocá "Permitir". El botón "›" y la clase <code>.page-link</code> son de un componente de paginación Bootstrap estándar; si AFIP cambia el diseño de la pantalla, avisame con una captura nueva del botón para actualizar el selector. Nunca compartas tu Clave Fiscal conmigo ni con ningún script.</p>
       </div>
     </div>
 
