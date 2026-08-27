@@ -209,25 +209,11 @@
   .alerta.inf { background: rgba(201,168,76,0.1); border-left: 3px solid var(--dorado); color: #7a5c00; }
 
   .ayuda-f12 { font-size: 0.7rem; line-height: 1.7; color: var(--texto); }
-  .ayuda-f12 h4 { font-family: 'Fraunces', serif; font-size: 0.85rem; color: var(--verde); margin: 1rem 0 0.4rem; }
-  .ayuda-f12 h4:first-child { margin-top: 0; }
-  .ayuda-f12 ol, .ayuda-f12 ul { padding-left: 1.2rem; margin-top: 0.3rem; }
-  .ayuda-f12 code, .ayuda-f12 pre {
+  .ayuda-f12 code {
     font-family: 'DM Mono', monospace; background: var(--crema); border: 1px solid var(--crema-oscuro);
-    border-radius: 3px; font-size: 0.65rem;
+    border-radius: 3px; font-size: 0.65rem; padding: 0.1rem 0.3rem;
   }
-  .ayuda-f12 code { padding: 0.1rem 0.3rem; }
-  .ayuda-f12 pre {
-    padding: 0.8rem; overflow-x: auto; white-space: pre; margin: 0.5rem 0; line-height: 1.5; position: relative;
-  }
-  .btn-copiar {
-    position: absolute; top: 0.5rem; right: 0.5rem;
-    font-size: 0.6rem; padding: 0.3rem 0.6rem; border-radius: 3px;
-    background: var(--verde); color: var(--crema); border: none; cursor: pointer;
-    letter-spacing: 0.05em; text-transform: uppercase;
-  }
-  .btn-copiar:hover { background: var(--verde-medio); }
-  .caja-pre { position: relative; }
+  .ayuda-f12 .btn { margin-top: 1rem; }
 
   footer { text-align: center; padding: 1.5rem; font-size: 0.62rem; color: var(--gris); letter-spacing: 0.05em; border-top: 1px solid var(--crema-oscuro); margin-top: 2rem; }
 
@@ -300,55 +286,10 @@
 
     <!-- Ayuda para bajar los PDF de AFIP -->
     <div class="panel">
-      <div class="panel-header"><div class="dot"></div> Paso 0 · Conseguir los PDF desde AFIP (F12)</div>
+      <div class="panel-header"><div class="dot"></div> Paso 0 · Copiar datos de CP de ARCA</div>
       <div class="panel-body ayuda-f12">
-        <p>No tengo forma de entrar a tu cuenta de AFIP con tu Clave Fiscal, así que este paso lo hacés vos, en tu propio navegador ya logueado. Dos formas:</p>
-
-        <h4>Opción A — Manual (más segura, recomendada)</h4>
-        <ol>
-          <li>Entrá a la consulta de Cartas de Porte Electrónicas en AFIP/ARCA con tu Clave Fiscal.</li>
-          <li>Descargá el PDF de cada CTG que te interese (botón "Ver CP" / "Imprimir").</li>
-          <li>Soltá todos los PDF en la zona de carga de abajo (Paso 1).</li>
-        </ol>
-
-        <h4>Opción B — Script de consola (F12), en lote y con avance de página automático</h4>
-        <p>Verificado en <code>cpea-app.afip.gob.ar/cpe-web</code> → pantalla <strong>Consulta de Solicitadas</strong> (<code>#/consultar-solicitadas</code>), paginado tipo Bootstrap (‹ 1 2 3 … ›). Con esa pantalla abierta en la página 1, presioná <code>F12</code> → pestaña <code>Console</code>, pegá este script y Enter. Descarga los 10 PDF de la página actual, pasa solo a la página siguiente y repite hasta que no haya más:</p>
-        <div class="caja-pre">
-          <button class="btn-copiar" onclick="copiarScript()">Copiar</button>
-          <pre id="scriptF12">(async function () {
-  const ESPERA_ENTRE_DESCARGAS = 2000;
-  const ESPERA_CAMBIO_PAGINA = 2500;
-  const MAX_PAGINAS = 30; // tope de seguridad
-
-  function botonSiguiente() {
-    const links = [...document.querySelectorAll('.page-link')];
-    const sig = links.find(el => el.textContent.trim() === '›');
-    if (!sig) return null;
-    const li = sig.closest('.page-item');
-    if (li && li.classList.contains('disabled')) return null;
-    return sig;
-  }
-
-  let pagina = 1;
-  while (pagina <= MAX_PAGINAS) {
-    const botones = [...document.querySelectorAll('button.fa-print, button[title="Imprimir"]')];
-    console.log(`--- Página ${pagina}: ${botones.length} Cartas de Porte ---`);
-    for (let i = 0; i < botones.length; i++) {
-      botones[i].click();
-      console.log(`  (${i + 1}/${botones.length}) descarga disparada`);
-      await new Promise(r => setTimeout(r, ESPERA_ENTRE_DESCARGAS));
-    }
-
-    const sig = botonSiguiente();
-    if (!sig) { console.log('No hay más páginas. Listo.'); break; }
-    sig.click();
-    pagina++;
-    console.log(`Avanzando a la página ${pagina}...`);
-    await new Promise(r => setTimeout(r, ESPERA_CAMBIO_PAGINA));
-  }
-})();</pre>
-        </div>
-        <p><strong>Notas:</strong> probalo primero con <code>MAX_PAGINAS = 2</code> para confirmar que avanza bien antes de dejarlo correr las ~20 páginas completas. Chrome puede bloquear descargas automáticas después de varias seguidas: si dejan de bajar, fijate si apareció un aviso arriba del navegador y tocá "Permitir". El botón "›" y la clase <code>.page-link</code> son de un componente de paginación Bootstrap estándar; si AFIP cambia el diseño de la pantalla, avisame con una captura nueva del botón para actualizar el selector. Nunca compartas tu Clave Fiscal conmigo ni con ningún script.</p>
+        <p>Dale copiar al siguiente botón, posicionate en el servicio <strong>CARTA DE PORTE ELECTRÓNICA</strong> de ARCA, entrá al tipo de carta de porte a consultar, definí el período y dale <code>F12</code>, luego pegá estas instrucciones, elegí la carpeta y bajá todas las Cartas de Porte en formato PDF.</p>
+        <button class="btn btn-primary" id="btnCopiarF12" onclick="copiarScript()">📋 Copiar instrucciones</button>
       </div>
     </div>
 
@@ -500,10 +441,45 @@ let cartas = [];
 // ═══════════════════════════════════════════════════
 // COPIAR SCRIPT F12
 // ═══════════════════════════════════════════════════
+// Script de consola (F12) para AFIP/ARCA — descarga en lote los PDF de la
+// pantalla "Consulta de Solicitadas" (cpea-app.afip.gob.ar/cpe-web#/consultar-solicitadas)
+// avanzando de página automáticamente (paginación Bootstrap ‹ 1 2 3 … ›).
+const SCRIPT_F12 = `(async function () {
+  const ESPERA_ENTRE_DESCARGAS = 2000;
+  const ESPERA_CAMBIO_PAGINA = 2500;
+  const MAX_PAGINAS = 30; // tope de seguridad
+
+  function botonSiguiente() {
+    const links = [...document.querySelectorAll('.page-link')];
+    const sig = links.find(el => el.textContent.trim() === '›');
+    if (!sig) return null;
+    const li = sig.closest('.page-item');
+    if (li && li.classList.contains('disabled')) return null;
+    return sig;
+  }
+
+  let pagina = 1;
+  while (pagina <= MAX_PAGINAS) {
+    const botones = [...document.querySelectorAll('button.fa-print, button[title="Imprimir"]')];
+    console.log(\`--- Página \${pagina}: \${botones.length} Cartas de Porte ---\`);
+    for (let i = 0; i < botones.length; i++) {
+      botones[i].click();
+      console.log(\`  (\${i + 1}/\${botones.length}) descarga disparada\`);
+      await new Promise(r => setTimeout(r, ESPERA_ENTRE_DESCARGAS));
+    }
+
+    const sig = botonSiguiente();
+    if (!sig) { console.log('No hay más páginas. Listo.'); break; }
+    sig.click();
+    pagina++;
+    console.log(\`Avanzando a la página \${pagina}...\`);
+    await new Promise(r => setTimeout(r, ESPERA_CAMBIO_PAGINA));
+  }
+})();`;
+
 function copiarScript() {
-  const texto = document.getElementById('scriptF12').textContent;
-  navigator.clipboard.writeText(texto).then(() => {
-    const btn = event.target;
+  navigator.clipboard.writeText(SCRIPT_F12).then(() => {
+    const btn = document.getElementById('btnCopiarF12');
     const original = btn.textContent;
     btn.textContent = '✓ Copiado';
     setTimeout(() => { btn.textContent = original; }, 1500);
