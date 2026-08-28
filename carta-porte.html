@@ -420,13 +420,24 @@ async function iniciarSesion() {
 }
 
 // Enter en los campos de login
+function limpiarCamposLogin() {
+  const u = document.getElementById('loginUsuario');
+  const c = document.getElementById('loginClave');
+  if (u) u.value = '';
+  if (c) c.value = '';
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  limpiarCamposLogin();
   ['loginUsuario','loginClave'].forEach(id => {
     document.getElementById(id)?.addEventListener('keydown', e => {
       if (e.key === 'Enter') iniciarSesion();
     });
   });
 });
+// Si el navegador restaura la página desde su caché (botón "atrás"), el
+// autocompletado puede repoblar los campos: los limpiamos de nuevo.
+window.addEventListener('pageshow', limpiarCamposLogin);
 
 
 // ═══════════════════════════════════════════════════
