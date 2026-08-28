@@ -260,8 +260,8 @@
     <div class="login-logo">🚚</div>
     <h2>CP · ARCA</h2>
     <p>Extractor de Cartas de Porte Electrónicas</p>
-    <input type="text" id="loginUsuario" placeholder="Usuario" autocomplete="username" />
-    <input type="password" id="loginClave" placeholder="Contraseña" autocomplete="current-password" />
+    <input type="text" id="loginUsuario" placeholder="Usuario" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" />
+    <input type="password" id="loginClave" placeholder="Contraseña" autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')" />
     <button onclick="iniciarSesion()">Ingresar</button>
     <div class="login-error" id="loginError"></div>
   </div>
