@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SISA · Simulador Información Productiva 1 (IP1)</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Fraunces:ital,wght@0,300;0,600;0,900;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --verde: #1a3a2a;
+    --verde-medio: #2d6a4f;
+    --verde-claro: #52b788;
+    --crema: #f5f0e8;
+    --crema-oscuro: #e8e0d0;
+    --dorado: #c9a84c;
+    --dorado-claro: #f0d080;
+    --texto: #1a1a1a;
+    --gris: #6b7280;
+    --error: #c0392b;
+    --ok: #27ae60;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--crema);
+    color: var(--texto);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    padding-bottom: 3rem;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--verde);
+    padding: 1.1rem 1.6rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    border-bottom: 3px solid var(--dorado);
+    position: relative;
+    overflow: hidden;
+  }
+  header::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 200px; height: 200px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(201,168,76,0.15) 0%, transparent 70%);
+  }
+  .header-icon { font-size: 1.9rem; line-height: 1; filter: drop-shadow(0 0 12px rgba(201,168,76,0.4)); }
+  .header-text h1 { font-family: 'Fraunces', serif; font-size: 1.35rem; font-weight: 900; color: var(--crema); letter-spacing: -0.02em; line-height: 1.1; }
+  .header-text h1 span { color: var(--dorado); }
+  .header-text p { color: rgba(245,240,232,0.65); font-size: 0.66rem; margin-top: 0.2rem; letter-spacing: 0.07em; text-transform: uppercase; }
+  .badge { margin-left: auto; background: var(--dorado); color: var(--verde); font-size: 0.62rem; font-weight: 500; padding: 0.3rem 0.75rem; border-radius: 2px; letter-spacing: 0.1em; text-transform: uppercase; }
+
+  /* ── AVISO ── */
+  .aviso {
+    background: var(--dorado-claro);
+    color: #4a3a10;
+    font-size: 0.72rem;
+    line-height: 1.55;
+    padding: 0.75rem 1.6rem;
+    border-bottom: 1px solid var(--dorado);
+  }
+  .aviso b { color: #3a2c08; }
+
+  /* ── BREADCRUMB (imita navegación de ARCA) ── */
+  .breadcrumb {
+    background: white;
+    border-bottom: 1px solid var(--crema-oscuro);
+    padding: 0.55rem 1.6rem;
+    font-size: 0.68rem;
+    color: var(--gris);
+    letter-spacing: 0.02em;
+  }
+  .breadcrumb b { color: var(--verde); }
+
+  /* ── BARRA CONTRIBUYENTE ── */
+  .contrib {
+    background: white;
+    border-bottom: 1px solid var(--crema-oscuro);
+    padding: 0.9rem 1.6rem;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.8rem;
+    align-items: end;
+  }
+  .contrib .campo { display: flex; flex-direction: column; gap: 0.3rem; }
+  .contrib .campo.chk { flex-direction: row; align-items: center; gap: 0.5rem; }
+
+  main { max-width: 1150px; margin: 0 auto; padding: 1.4rem 1.6rem; }
+
+  label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--gris); }
+  input[type=text], input[type=number], select {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    padding: 0.5rem 0.6rem;
+    border: 1.5px solid var(--crema-oscuro);
+    border-radius: 3px;
+    background: var(--crema);
+    color: var(--texto);
+    width: 100%;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--verde-claro); background: white; }
+  input[type=checkbox] { width: 15px; height: 15px; accent-color: var(--verde); }
+
+  /* ── TABS (imita pestañas Existencias / Superficie / Puntos GPS) ── */
+  .tabs { display: flex; gap: 0.3rem; border-bottom: 2px solid var(--crema-oscuro); margin-bottom: 1.2rem; flex-wrap: wrap; }
+  .tab {
+    padding: 0.65rem 1rem;
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--gris);
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    display: flex; align-items: center; gap: 0.4rem;
+    user-select: none;
+  }
+  .tab .n { width: 16px; height: 16px; border-radius: 50%; background: var(--crema-oscuro); color: var(--gris); font-size: 0.6rem; display: flex; align-items: center; justify-content: center; }
+  .tab:hover { color: var(--verde); }
+  .tab.activo { color: var(--verde); border-bottom-color: var(--dorado); font-weight: 500; }
+  .tab.activo .n { background: var(--verde); color: var(--crema); }
+  .tab.ok .n { background: var(--ok); color: white; }
+
+  .panel { background: white; border: 1.5px solid var(--crema-oscuro); border-radius: 4px; }
+  .panel-header { background: var(--verde); color: var(--crema); padding: 0.6rem 1.1rem; font-size: 0.68rem; letter-spacing: 0.13em; text-transform: uppercase; display: flex; align-items: center; gap: 0.6rem; border-radius: 3px 3px 0 0; }
+  .panel-header .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dorado); }
+  .panel-body { padding: 1.1rem; }
+  .panel + .panel { margin-top: 1rem; }
+
+  .grid-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.7rem; align-items: end; }
+  .grid-form .full { grid-column: 1 / -1; }
+
+  .btn { font-family: 'DM Mono', monospace; font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase; padding: 0.6rem 1.1rem; border-radius: 3px; cursor: pointer; transition: all 0.15s; }
+  .btn-primary { background: var(--verde); color: var(--crema); border: 2px solid var(--verde); }
+  .btn-primary:hover:not(:disabled) { background: var(--verde-medio); border-color: var(--dorado); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-secondary { background: transparent; color: var(--verde); border: 1.5px solid var(--crema-oscuro); }
+  .btn-secondary:hover { border-color: var(--verde-claro); background: rgba(82,183,136,0.05); }
+  .btn-danger { background: transparent; color: var(--error); border: none; font-size: 1rem; cursor: pointer; padding: 0 0.3rem; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.7rem; margin-top: 1rem; }
+  th { background: var(--crema); text-align: left; padding: 0.5rem 0.6rem; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--gris); border-bottom: 2px solid var(--crema-oscuro); }
+  td { padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--crema-oscuro); vertical-align: middle; }
+  tr:hover td { background: rgba(82,183,136,0.05); }
+  .vacio { text-align: center; color: var(--gris); padding: 1.2rem; font-size: 0.7rem; }
+  .tag { font-size: 0.6rem; padding: 0.15rem 0.45rem; border-radius: 2px; letter-spacing: 0.03em; }
+  .tag-propia { background: rgba(39,174,96,0.12); color: var(--ok); }
+  .tag-terceros { background: rgba(201,168,76,0.18); color: #8a6d1f; }
+  .tag-sinstock { background: rgba(107,114,128,0.15); color: var(--gris); }
+  .tag-ok { background: rgba(39,174,96,0.12); color: var(--ok); }
+  .tag-warn { background: rgba(192,57,43,0.1); color: var(--error); }
+
+  .resumen-tot { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap: 0.8rem; margin-bottom: 1.2rem; }
+  .resumen-tot .card { background: var(--crema); border: 1px solid var(--crema-oscuro); border-radius: 4px; padding: 0.9rem; text-align: center; }
+  .resumen-tot .card .num { font-family: 'Fraunces', serif; font-weight: 900; font-size: 1.5rem; color: var(--verde); }
+  .resumen-tot .card .lbl { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--gris); margin-top: 0.2rem; }
+
+  .alerta { font-size: 0.7rem; padding: 0.65rem 0.9rem; border-radius: 3px; margin-bottom: 0.8rem; line-height: 1.5; }
+  .alerta.warn { background: rgba(192,57,43,0.08); color: var(--error); border: 1px solid rgba(192,57,43,0.25); }
+  .alerta.info { background: rgba(82,183,136,0.08); color: var(--verde-medio); border: 1px solid rgba(82,183,136,0.25); }
+
+  .comprobante { border: 2px dashed var(--dorado); border-radius: 4px; padding: 1.4rem; background: var(--crema); margin-top: 1rem; }
+  .comprobante h3 { font-family: 'Fraunces', serif; color: var(--verde); margin-bottom: 0.6rem; }
+  .comprobante .fila { display: flex; justify-content: space-between; font-size: 0.75rem; padding: 0.3rem 0; border-bottom: 1px dotted var(--crema-oscuro); }
+  .comprobante .fila span:first-child { color: var(--gris); }
+
+  footer { max-width: 1150px; margin: 2rem auto 0; padding: 0 1.6rem; font-size: 0.64rem; color: var(--gris); line-height: 1.7; }
+  .oculto { display: none !important; }
+
+  @media print {
+    header, .aviso, .breadcrumb, .contrib, .tabs, footer, .no-print { display: none !important; }
+    body { background: white; }
+    main { padding: 0; max-width: 100%; }
+  }
+
+  @media (max-width: 720px) {
+    .contrib { grid-template-columns: 1fr 1fr; }
+    table { display: block; overflow-x: auto; white-space: nowrap; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-icon">🌾</div>
+  <div class="header-text">
+    <h1>SISA <span>· Simulador</span></h1>
+    <p>Información Productiva 1 (IP1) — Existencias y Superficie</p>
+  </div>
+  <div class="badge">Simulación</div>
+</header>
+
+<div class="aviso">
+  ⚠️ <b>Esto es un simulador de práctica, no el sistema oficial de ARCA/AFIP.</b> No se conecta a ningún organismo ni presenta información real: todo lo que cargues queda guardado únicamente en este navegador (localStorage). Usalo para preparar y revisar tus datos antes de cargarlos en el servicio real <b>"Sistema de Información Simplificado Agrícola (SISA)"</b> con Clave Fiscal en arca.gob.ar.
+</div>
+
+<div class="breadcrumb">Inicio&nbsp;›&nbsp;<b>SISA</b>&nbsp;›&nbsp;Información Productiva&nbsp;›&nbsp;<b>IP1 (Existencias y Superficie)</b></div>
+
+<div class="contrib">
+  <div class="campo">
+    <label for="cuit">CUIT del contribuyente</label>
+    <input type="text" id="cuit" placeholder="20-12345678-9" maxlength="13">
+  </div>
+  <div class="campo">
+    <label for="razonSocial">Apellido y nombre / Razón social</label>
+    <input type="text" id="razonSocial" placeholder="Ej: Campo El Ceibo S.A.">
+  </div>
+  <div class="campo">
+    <label for="nivelClave">Nivel Clave Fiscal (simulado)</label>
+    <select id="nivelClave">
+      <option value="1">Nivel 1</option>
+      <option value="2">Nivel 2</option>
+      <option value="3" selected>Nivel 3</option>
+      <option value="4">Nivel 4</option>
+    </select>
+  </div>
+  <div class="campo chk">
+    <input type="checkbox" id="domicilioElectronico">
+    <label for="domicilioElectronico" style="text-transform:none;font-size:0.68rem;">Domicilio Fiscal Electrónico constituido</label>
+  </div>
+</div>
+
+<main>
+
+  <div class="tabs" id="tabs">
+    <div class="tab activo" data-tab="establecimientos"><span class="n">1</span> Establecimientos</div>
+    <div class="tab" data-tab="existencias"><span class="n">2</span> Existencias</div>
+    <div class="tab" data-tab="superficie"><span class="n">3</span> Superficie</div>
+    <div class="tab" data-tab="gps"><span class="n">4</span> Puntos GPS</div>
+    <div class="tab" data-tab="resumen"><span class="n">5</span> Resumen y presentación</div>
+  </div>
+
+  <!-- 1. ESTABLECIMIENTOS -->
+  <section id="panel-establecimientos" class="seccion">
+    <div class="panel">
+      <div class="panel-header"><span class="dot"></span> Campos propios / explotados</div>
+      <div class="panel-body">
+        <div class="alerta info">Cargá cada establecimiento (RENSPA) que vas a informar. Si un campo no tuvo stock de granos al 30/09, igual debe declararse como "Campo propio/explotado sin stock de granos" en la pestaña Existencias.</div>
+        <div class="grid-form">
+          <div class="campo"><label>RENSPA</label><input type="text" id="e_renspa" placeholder="01.234.5.67890/12"></div>
+          <div class="campo"><label>Provincia</label><select id="e_provincia"></select></div>
+          <div class="campo"><label>Partido / Departamento</label><input type="text" id="e_partido" placeholder="Ej: Pergamino"></div>
+          <div class="campo"><label>Localidad</label><input type="text" id="e_localidad" placeholder="Ej: Pergamino"></div>
+          <div class="campo"><label>Superficie total (ha)</label><input type="number" id="e_superficie" min="0" step="0.01"></div>
+          <button class="btn btn-primary" onclick="agregarEstablecimiento()">+ Agregar</button>
+        </div>
+        <table id="tabla-establecimientos">
+          <thead><tr><th>RENSPA</th><th>Provincia</th><th>Partido</th><th>Localidad</th><th>Sup. total (ha)</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. EXISTENCIAS -->
+  <section id="panel-existencias" class="seccion oculto">
+    <div class="panel">
+      <div class="panel-header"><span class="dot"></span> Anexo IP1 — Existencias al 30/09</div>
+      <div class="panel-body">
+        <div class="alerta info">Declaración de existencias de granos y oleaginosas por establecimiento. Desde la campaña 2024/25 se exige un punto GPS del campo donde se desarrolló la actividad (no el de la planta de acopio).</div>
+        <div class="grid-form">
+          <div class="campo"><label>Establecimiento</label><select id="x_establecimiento"></select></div>
+          <div class="campo"><label>Producto</label>
+            <select id="x_producto">
+              <option>Algodón</option><option>Arroz</option><option>Arveja</option><option>Cártamo</option>
+              <option>Centeno</option><option>Girasol</option><option>Maíz</option><option>Sorgo</option>
+              <option>Soja</option><option>Trigo</option>
+            </select>
+          </div>
+          <div class="campo"><label>Categoría</label>
+            <select id="x_categoria">
+              <option value="propia">Existencia propia</option>
+              <option value="terceros">Existencia de terceros en campo explotado</option>
+              <option value="sinstock">Campo propio/explotado sin stock de granos</option>
+            </select>
+          </div>
+          <div class="campo"><label>Cantidad (kg)</label><input type="number" id="x_cantidad" min="0" step="1"></div>
+          <div class="campo"><label>GPS lat. del campo</label><input type="text" id="x_lat" placeholder="-33.8945"></div>
+          <div class="campo"><label>GPS long. del campo</label><input type="text" id="x_lon" placeholder="-61.2345"></div>
+          <button class="btn btn-primary" onclick="agregarExistencia()">+ Agregar</button>
+        </div>
+        <table id="tabla-existencias">
+          <thead><tr><th>Establecimiento</th><th>Producto</th><th>Categoría</th><th>Cantidad (kg)</th><th>GPS</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. SUPERFICIE -->
+  <section id="panel-superficie" class="seccion oculto">
+    <div class="panel">
+      <div class="panel-header"><span class="dot"></span> Anexo IP1-Superficie I — Cultivos de invierno</div>
+      <div class="panel-body">
+        <div class="alerta info">Superficie agrícola sembrada por cultivo y establecimiento, con el tipo de tenencia del campo y el punto GPS del polígono declarado.</div>
+        <div class="grid-form">
+          <div class="campo"><label>Establecimiento</label><select id="s_establecimiento"></select></div>
+          <div class="campo"><label>Cultivo</label>
+            <select id="s_cultivo">
+              <option>Trigo</option><option>Cebada cervecera</option><option>Cebada forrajera</option>
+              <option>Avena</option><option>Centeno</option><option>Colza / Canola</option>
+              <option>Arveja</option><option>Garbanzo</option><option>Lino</option><option>Otro</option>
+            </select>
+          </div>
+          <div class="campo"><label>Superficie sembrada (ha)</label><input type="number" id="s_superficie" min="0" step="0.01"></div>
+          <div class="campo"><label>Tipo de tenencia</label>
+            <select id="s_tenencia">
+              <option>Propia</option><option>Arrendada</option><option>Aparcería</option>
+              <option>Contrato accidental</option><option>Otra</option>
+            </select>
+          </div>
+          <div class="campo"><label>GPS lat. del polígono</label><input type="text" id="s_lat" placeholder="-33.8945"></div>
+          <div class="campo"><label>GPS long. del polígono</label><input type="text" id="s_lon" placeholder="-61.2345"></div>
+          <button class="btn btn-primary" onclick="agregarSuperficie()">+ Agregar</button>
+        </div>
+        <table id="tabla-superficie">
+          <thead><tr><th>Establecimiento</th><th>Cultivo</th><th>Superficie (ha)</th><th>Tenencia</th><th>GPS</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. PUNTOS GPS -->
+  <section id="panel-gps" class="seccion oculto">
+    <div class="panel">
+      <div class="panel-header"><span class="dot"></span> Puntos GPS declarados</div>
+      <div class="panel-body">
+        <div class="alerta info">El sistema real valida que cada punto GPS cargado en Existencias o Superficie coincida con los puntos registrados en el Domicilio del RENSPA. Acá podés marcar manualmente si cada punto "coincide" para simular esa validación.</div>
+        <table id="tabla-gps">
+          <thead><tr><th>Origen</th><th>Establecimiento</th><th>Detalle</th><th>Lat</th><th>Lon</th><th>Estado</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. RESUMEN -->
+  <section id="panel-resumen" class="seccion oculto">
+    <div class="resumen-tot" id="resumen-cards"></div>
+
+    <div id="resumen-alertas"></div>
+
+    <div class="panel">
+      <div class="panel-header"><span class="dot"></span> Superficie declarada por cultivo</div>
+      <div class="panel-body"><table id="tabla-resumen-superficie"><thead><tr><th>Cultivo</th><th>Superficie total (ha)</th></tr></thead><tbody></tbody></table></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><span class="dot"></span> Existencias declaradas por producto</div>
+      <div class="panel-body"><table id="tabla-resumen-existencias"><thead><tr><th>Producto</th><th>Propias (kg)</th><th>Terceros (kg)</th><th>Total (kg)</th></tr></thead><tbody></tbody></table></div>
+    </div>
+
+    <div class="panel no-print">
+      <div class="panel-header"><span class="dot"></span> Presentación (simulada)</div>
+      <div class="panel-body">
+        <p style="font-size:0.72rem;color:var(--gris);margin-bottom:0.8rem;">Al presionar "Presentar" se genera un comprobante de práctica con número de operación ficticio. Esto <b>no envía nada a ARCA/AFIP</b>.</p>
+        <button class="btn btn-primary" id="btn-presentar" onclick="presentar()">Presentar Declaración Jurada (simulado)</button>
+        <button class="btn btn-secondary" onclick="reiniciar()">Reiniciar simulación</button>
+      </div>
+    </div>
+
+    <div id="comprobante-wrap"></div>
+  </section>
+
+</main>
+
+<footer>
+  Plazos de referencia: IP1 se presenta habitualmente entre el 1 y el 31 de octubre de cada año (verificar fecha vigente, actualizada por RG AFIP 5771/2025); IP2 entre el 1 de diciembre y el último día de febrero. Lista de productos, cultivos y plazos a título orientativo — consultá siempre el instructivo oficial vigente en el micrositio "Actividades Agropecuarias / SISA" de arca.gob.ar antes de presentar tu declaración jurada real.
+</footer>
+
+<script>
+const PROVINCIAS = ["Buenos Aires","CABA","Catamarca","Chaco","Chubut","Córdoba","Corrientes","Entre Ríos","Formosa","Jujuy","La Pampa","La Rioja","Mendoza","Misiones","Neuquén","Río Negro","Salta","San Juan","San Luis","Santa Cruz","Santa Fe","Santiago del Estero","Tierra del Fuego","Tucumán"];
+
+const KEY = "sisa_ip1_simulador_v1";
+let state = cargar();
+
+function estadoInicial() {
+  return {
+    contribuyente: { cuit: "", razonSocial: "", domicilioElectronico: false, nivelClave: "3" },
+    establecimientos: [],
+    existencias: [],
+    superficies: [],
+    presentado: null
+  };
+}
+
+function cargar() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) return Object.assign(estadoInicial(), JSON.parse(raw));
+  } catch (e) {}
+  return estadoInicial();
+}
+function guardar() {
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+}
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+/* ── init ── */
+function init() {
+  const selProv = document.getElementById("e_provincia");
+  PROVINCIAS.forEach(p => selProv.appendChild(new Option(p, p)));
+
+  document.getElementById("cuit").value = state.contribuyente.cuit;
+  document.getElementById("razonSocial").value = state.contribuyente.razonSocial;
+  document.getElementById("nivelClave").value = state.contribuyente.nivelClave;
+  document.getElementById("domicilioElectronico").checked = state.contribuyente.domicilioElectronico;
+
+  ["cuit","razonSocial","nivelClave"].forEach(id => {
+    document.getElementById(id).addEventListener("input", syncContribuyente);
+    document.getElementById(id).addEventListener("change", syncContribuyente);
+  });
+  document.getElementById("domicilioElectronico").addEventListener("change", syncContribuyente);
+
+  document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => mostrarTab(t.dataset.tab)));
+
+  renderTodo();
+}
+
+function syncContribuyente() {
+  state.contribuyente.cuit = document.getElementById("cuit").value;
+  state.contribuyente.razonSocial = document.getElementById("razonSocial").value;
+  state.contribuyente.nivelClave = document.getElementById("nivelClave").value;
+  state.contribuyente.domicilioElectronico = document.getElementById("domicilioElectronico").checked;
+  guardar();
+}
+
+function mostrarTab(nombre) {
+  document.querySelectorAll(".seccion").forEach(s => s.classList.add("oculto"));
+  document.getElementById("panel-" + nombre).classList.remove("oculto");
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("activo", t.dataset.tab === nombre));
+  if (nombre === "gps") renderGPS();
+  if (nombre === "resumen") renderResumen();
+}
+
+/* ── establecimientos ── */
+function opcionesEstablecimientos(selectEl) {
+  selectEl.innerHTML = "";
+  if (state.establecimientos.length === 0) {
+    selectEl.appendChild(new Option("— cargá un establecimiento primero —", ""));
+    return;
+  }
+  state.establecimientos.forEach(e => {
+    selectEl.appendChild(new Option(`${e.renspa || "(sin RENSPA)"} — ${e.localidad || "s/localidad"}, ${e.provincia}`, e.id));
+  });
+}
+
+function agregarEstablecimiento() {
+  const renspa = val("e_renspa"), provincia = document.getElementById("e_provincia").value;
+  const partido = val("e_partido"), localidad = val("e_localidad"), superficie = val("e_superficie");
+  if (!renspa) { alert("Ingresá el RENSPA del establecimiento."); return; }
+  state.establecimientos.push({ id: uid(), renspa, provincia, partido, localidad, superficie: superficie || "" });
+  ["e_renspa","e_partido","e_localidad","e_superficie"].forEach(id => document.getElementById(id).value = "");
+  guardar(); renderTodo();
+}
+function eliminarEstablecimiento(id) {
+  state.establecimientos = state.establecimientos.filter(e => e.id !== id);
+  state.existencias = state.existencias.filter(x => x.establecimientoId !== id);
+  state.superficies = state.superficies.filter(s => s.establecimientoId !== id);
+  guardar(); renderTodo();
+}
+function renderEstablecimientos() {
+  const tbody = document.querySelector("#tabla-establecimientos tbody");
+  tbody.innerHTML = "";
+  if (state.establecimientos.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="vacio">Todavía no cargaste establecimientos.</td></tr>`;
+  } else {
+    state.establecimientos.forEach(e => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${e.renspa}</td><td>${e.provincia}</td><td>${e.partido || "—"}</td><td>${e.localidad || "—"}</td><td>${e.superficie || "—"}</td>
+        <td><button class="btn-danger" onclick="eliminarEstablecimiento('${e.id}')" title="Eliminar">✕</button></td>`;
+      tbody.appendChild(tr);
+    });
+  }
+  opcionesEstablecimientos(document.getElementById("x_establecimiento"));
+  opcionesEstablecimientos(document.getElementById("s_establecimiento"));
+}
+
+/* ── existencias ── */
+function agregarExistencia() {
+  const establecimientoId = document.getElementById("x_establecimiento").value;
+  if (!establecimientoId) { alert("Seleccioná un establecimiento."); return; }
+  const producto = document.getElementById("x_producto").value;
+  const categoria = document.getElementById("x_categoria").value;
+  const cantidad = val("x_cantidad");
+  const lat = val("x_lat"), lon = val("x_lon");
+  if (categoria !== "sinstock" && !cantidad) { alert("Ingresá la cantidad en kg (o elegí 'sin stock de granos')."); return; }
+  state.existencias.push({ id: uid(), establecimientoId, producto, categoria, cantidad: cantidad || "0", lat, lon, coincide: true });
+  ["x_cantidad","x_lat","x_lon"].forEach(id => document.getElementById(id).value = "");
+  guardar(); renderTodo();
+}
+function eliminarExistencia(id) { state.existencias = state.existencias.filter(x => x.id !== id); guardar(); renderTodo(); }
+function catLabel(c) { return c === "propia" ? "Existencia propia" : c === "terceros" ? "Terceros en campo explotado" : "Campo sin stock de granos"; }
+function catTag(c) { return c === "propia" ? "tag-propia" : c === "terceros" ? "tag-terceros" : "tag-sinstock"; }
+function renderExistencias() {
+  const tbody = document.querySelector("#tabla-existencias tbody");
+  tbody.innerHTML = "";
+  if (state.existencias.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="vacio">Todavía no cargaste existencias.</td></tr>`;
+  } else {
+    state.existencias.forEach(x => {
+      const est = state.establecimientos.find(e => e.id === x.establecimientoId);
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${est ? est.renspa : "—"}</td><td>${x.producto}</td>
+        <td><span class="tag ${catTag(x.categoria)}">${catLabel(x.categoria)}</span></td>
+        <td>${x.categoria === "sinstock" ? "—" : Number(x.cantidad).toLocaleString("es-AR")}</td>
+        <td>${x.lat && x.lon ? x.lat + ", " + x.lon : "—"}</td>
+        <td><button class="btn-danger" onclick="eliminarExistencia('${x.id}')" title="Eliminar">✕</button></td>`;
+      tbody.appendChild(tr);
+    });
+  }
+}
+
+/* ── superficie ── */
+function agregarSuperficie() {
+  const establecimientoId = document.getElementById("s_establecimiento").value;
+  if (!establecimientoId) { alert("Seleccioná un establecimiento."); return; }
+  const cultivo = document.getElementById("s_cultivo").value;
+  const superficie = val("s_superficie");
+  const tenencia = document.getElementById("s_tenencia").value;
+  const lat = val("s_lat"), lon = val("s_lon");
+  if (!superficie) { alert("Ingresá la superficie sembrada en hectáreas."); return; }
+  state.superficies.push({ id: uid(), establecimientoId, cultivo, superficie, tenencia, lat, lon, coincide: true });
+  ["s_superficie","s_lat","s_lon"].forEach(id => document.getElementById(id).value = "");
+  guardar(); renderTodo();
+}
+function eliminarSuperficie(id) { state.superficies = state.superficies.filter(s => s.id !== id); guardar(); renderTodo(); }
+function renderSuperficie() {
+  const tbody = document.querySelector("#tabla-superficie tbody");
+  tbody.innerHTML = "";
+  if (state.superficies.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="vacio">Todavía no cargaste superficie.</td></tr>`;
+  } else {
+    state.superficies.forEach(s => {
+      const est = state.establecimientos.find(e => e.id === s.establecimientoId);
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${est ? est.renspa : "—"}</td><td>${s.cultivo}</td>
+        <td>${Number(s.superficie).toLocaleString("es-AR")}</td><td>${s.tenencia}</td>
+        <td>${s.lat && s.lon ? s.lat + ", " + s.lon : "—"}</td>
+        <td><button class="btn-danger" onclick="eliminarSuperficie('${s.id}')" title="Eliminar">✕</button></td>`;
+      tbody.appendChild(tr);
+    });
+  }
+}
+
+/* ── puntos gps ── */
+function renderGPS() {
+  const tbody = document.querySelector("#tabla-gps tbody");
+  tbody.innerHTML = "";
+  const filas = [];
+  state.existencias.filter(x => x.lat && x.lon).forEach(x => {
+    const est = state.establecimientos.find(e => e.id === x.establecimientoId);
+    filas.push({ origen: "Existencias", est: est ? est.renspa : "—", detalle: x.producto, lat: x.lat, lon: x.lon, id: x.id, tipo: "existencia" });
+  });
+  state.superficies.filter(s => s.lat && s.lon).forEach(s => {
+    const est = state.establecimientos.find(e => e.id === s.establecimientoId);
+    filas.push({ origen: "Superficie", est: est ? est.renspa : "—", detalle: s.cultivo, lat: s.lat, lon: s.lon, id: s.id, tipo: "superficie" });
+  });
+  if (filas.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="vacio">No hay puntos GPS cargados todavía (se completan en Existencias / Superficie).</td></tr>`;
+    return;
+  }
+  filas.forEach(f => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${f.origen}</td><td>${f.est}</td><td>${f.detalle}</td><td>${f.lat}</td><td>${f.lon}</td>
+      <td><label style="display:flex;align-items:center;gap:0.4rem;font-size:0.68rem;text-transform:none;">
+        <input type="checkbox" ${f.coincideChecked !== false ? "checked" : ""} onchange="toggleCoincide('${f.tipo}','${f.id}',this.checked)"> coincide con domicilio</label></td>`;
+    tbody.appendChild(tr);
+  });
+}
+function toggleCoincide(tipo, id, val) {
+  const arr = tipo === "existencia" ? state.existencias : state.superficies;
+  const item = arr.find(i => i.id === id);
+  if (item) item.coincide = val;
+  guardar();
+}
+
+/* ── resumen ── */
+function renderResumen() {
+  const cards = document.getElementById("resumen-cards");
+  const totalHa = state.superficies.reduce((a, s) => a + (Number(s.superficie) || 0), 0);
+  const totalKg = state.existencias.reduce((a, x) => a + (Number(x.cantidad) || 0), 0);
+  cards.innerHTML = `
+    <div class="card"><div class="num">${state.establecimientos.length}</div><div class="lbl">Establecimientos</div></div>
+    <div class="card"><div class="num">${totalHa.toLocaleString("es-AR")}</div><div class="lbl">Ha declaradas</div></div>
+    <div class="card"><div class="num">${totalKg.toLocaleString("es-AR")}</div><div class="lbl">Kg existencias</div></div>
+    <div class="card"><div class="num">${state.superficies.length + state.existencias.length}</div><div class="lbl">Registros cargados</div></div>`;
+
+  const alertas = document.getElementById("resumen-alertas");
+  alertas.innerHTML = "";
+  const problemas = [];
+  if (!state.contribuyente.cuit) problemas.push("Falta el CUIT del contribuyente.");
+  if (!state.contribuyente.domicilioElectronico) problemas.push("El sistema real exige Domicilio Fiscal Electrónico constituido para operar SISA.");
+  if (Number(state.contribuyente.nivelClave) < 3) problemas.push("Se requiere Clave Fiscal con Nivel de Seguridad 3 o superior.");
+  if (state.establecimientos.length === 0) problemas.push("No hay establecimientos cargados: informá al menos uno, aunque no tenga stock.");
+  const gpsFaltantes = [...state.existencias, ...state.superficies].filter(r => !r.lat || !r.lon).length;
+  if (gpsFaltantes > 0) problemas.push(`${gpsFaltantes} registro(s) sin punto GPS cargado.`);
+  const noCoincide = [...state.existencias, ...state.superficies].filter(r => r.coincide === false).length;
+  if (noCoincide > 0) problemas.push(`${noCoincide} punto(s) GPS marcados como "no coincide con domicilio" — el sistema real bloquearía la carga hasta corregirlos.`);
+  if (problemas.length) {
+    alertas.innerHTML = `<div class="alerta warn"><b>Revisar antes de presentar:</b><br>${problemas.map(p => "• " + p).join("<br>")}</div>`;
+  } else {
+    alertas.innerHTML = `<div class="alerta info">Los datos cargados parecen completos para simular la presentación.</div>`;
+  }
+
+  const porCultivo = {};
+  state.superficies.forEach(s => { porCultivo[s.cultivo] = (porCultivo[s.cultivo] || 0) + Number(s.superficie || 0); });
+  const tbodyS = document.querySelector("#tabla-resumen-superficie tbody");
+  tbodyS.innerHTML = Object.keys(porCultivo).length
+    ? Object.entries(porCultivo).map(([c, ha]) => `<tr><td>${c}</td><td>${ha.toLocaleString("es-AR")}</td></tr>`).join("")
+    : `<tr><td colspan="2" class="vacio">Sin datos de superficie.</td></tr>`;
+
+  const porProducto = {};
+  state.existencias.forEach(x => {
+    if (!porProducto[x.producto]) porProducto[x.producto] = { propia: 0, terceros: 0 };
+    if (x.categoria === "propia") porProducto[x.producto].propia += Number(x.cantidad || 0);
+    if (x.categoria === "terceros") porProducto[x.producto].terceros += Number(x.cantidad || 0);
+  });
+  const tbodyX = document.querySelector("#tabla-resumen-existencias tbody");
+  tbodyX.innerHTML = Object.keys(porProducto).length
+    ? Object.entries(porProducto).map(([p, v]) => `<tr><td>${p}</td><td>${v.propia.toLocaleString("es-AR")}</td><td>${v.terceros.toLocaleString("es-AR")}</td><td>${(v.propia+v.terceros).toLocaleString("es-AR")}</td></tr>`).join("")
+    : `<tr><td colspan="4" class="vacio">Sin datos de existencias.</td></tr>`;
+
+  renderComprobante();
+}
+
+/* ── presentación simulada ── */
+function presentar() {
+  const numero = "SIM" + Date.now().toString().slice(-10);
+  state.presentado = { numero, fecha: new Date().toISOString() };
+  guardar();
+  renderComprobante();
+  document.getElementById("comprobante-wrap").scrollIntoView({ behavior: "smooth" });
+}
+function renderComprobante() {
+  const wrap = document.getElementById("comprobante-wrap");
+  if (!state.presentado) { wrap.innerHTML = ""; return; }
+  const f = new Date(state.presentado.fecha);
+  wrap.innerHTML = `
+    <div class="comprobante">
+      <h3>Acuse de recibo — Simulación IP1</h3>
+      <div class="fila"><span>N° de operación (simulado)</span><span><b>${state.presentado.numero}</b></span></div>
+      <div class="fila"><span>CUIT</span><span>${state.contribuyente.cuit || "—"}</span></div>
+      <div class="fila"><span>Razón social</span><span>${state.contribuyente.razonSocial || "—"}</span></div>
+      <div class="fila"><span>Fecha y hora</span><span>${f.toLocaleString("es-AR")}</span></div>
+      <div class="fila"><span>Establecimientos informados</span><span>${state.establecimientos.length}</span></div>
+      <div class="fila"><span>Registros de existencias</span><span>${state.existencias.length}</span></div>
+      <div class="fila"><span>Registros de superficie</span><span>${state.superficies.length}</span></div>
+      <p style="font-size:0.66rem;color:var(--gris);margin-top:0.8rem;">Este comprobante es una simulación de práctica y no tiene validez fiscal. Para presentar tu Declaración Jurada real, ingresá con tu Clave Fiscal al servicio SISA en el sitio oficial de ARCA.</p>
+      <button class="btn btn-secondary no-print" style="margin-top:0.8rem;" onclick="window.print()">Imprimir / guardar comprobante</button>
+    </div>`;
+}
+
+function reiniciar() {
+  if (!confirm("¿Reiniciar toda la simulación? Se borran todos los datos cargados en este navegador.")) return;
+  state = estadoInicial();
+  guardar();
+  document.getElementById("cuit").value = "";
+  document.getElementById("razonSocial").value = "";
+  document.getElementById("nivelClave").value = "3";
+  document.getElementById("domicilioElectronico").checked = false;
+  renderTodo();
+  mostrarTab("establecimientos");
+}
+
+function val(id) { return document.getElementById(id).value.trim(); }
+
+function renderTodo() {
+  renderEstablecimientos();
+  renderExistencias();
+  renderSuperficie();
+  actualizarEstadoTabs();
+  const activo = document.querySelector(".tab.activo");
+  if (activo && activo.dataset.tab === "gps") renderGPS();
+  if (activo && activo.dataset.tab === "resumen") renderResumen();
+}
+function actualizarEstadoTabs() {
+  document.querySelector('.tab[data-tab="establecimientos"]').classList.toggle("ok", state.establecimientos.length > 0);
+  document.querySelector('.tab[data-tab="existencias"]').classList.toggle("ok", state.existencias.length > 0);
+  document.querySelector('.tab[data-tab="superficie"]').classList.toggle("ok", state.superficies.length > 0);
+}
+
+init();
+</script>
+</body>
+</html>
